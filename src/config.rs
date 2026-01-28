@@ -1,0 +1,220 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Watchlist {
+    pub name: String,
+    pub symbols: Vec<String>,
+}
+
+impl Default for Watchlist {
+    fn default() -> Self {
+        Self {
+            name: "Default".to_string(),
+            symbols: vec![
+                "BBCA".to_string(),
+                "BBRI".to_string(),
+                "TLKM".to_string(),
+                "ASII".to_string(),
+            ],
+        }
+    }
+}
+
+/// A holding in the portfolio (1 lot = 100 shares for IDX)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Holding {
+    pub symbol: String,
+    pub lots: u32,
+    pub avg_price: f64,
+}
+
+impl Holding {
+    pub fn shares(&self) -> u64 {
+        self.lots as u64 * 100
+    }
+
+    pub fn cost_basis(&self) -> f64 {
+        self.shares() as f64 * self.avg_price
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    pub watchlists: Vec<Watchlist>,
+    #[serde(default)]
+    pub active_watchlist: usize,
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval_secs: u64,
+    #[serde(default)]
+    pub portfolio: Vec<Holding>,
+}
+
+fn default_refresh_interval() -> u64 {
+    1
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            watchlists: vec![
+                Watchlist {
+                    name: "Banking".to_string(),
+                    symbols: vec![
+                        "BBCA".to_string(),
+                        "BBRI".to_string(),
+                        "BMRI".to_string(),
+                        "BBNI".to_string(),
+                    ],
+                },
+                Watchlist {
+                    name: "Tech".to_string(),
+                    symbols: vec![
+                        "TLKM".to_string(),
+                        "GOTO".to_string(),
+                        "BUKA".to_string(),
+                    ],
+                },
+                Watchlist {
+                    name: "Mining".to_string(),
+                    symbols: vec![
+                        "ADRO".to_string(),
+                        "ANTM".to_string(),
+                        "INCO".to_string(),
+                        "PTBA".to_string(),
+                    ],
+                },
+            ],
+            active_watchlist: 0,
+            refresh_interval_secs: default_refresh_interval(),
+            portfolio: Vec::new(),
+        }
+    }
+}
+
+impl Config {
+    pub fn config_path() -> Result<PathBuf> {
+        let config_dir = dirs::config_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not find config directory"))?
+            .join("idx-cli");
+
+        if !config_dir.exists() {
+            fs::create_dir_all(&config_dir)?;
+        }
+
+        Ok(config_dir.join("config.json"))
+    }
+
+    pub fn load() -> Result<Self> {
+        let path = Self::config_path()?;
+
+        if !path.exists() {
+            let config = Config::default();
+            config.save()?;
+            return Ok(config);
+        }
+
+        let content = fs::read_to_string(&path)?;
+        let config: Config = serde_json::from_str(&content)?;
+        Ok(config)
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let path = Self::config_path()?;
+        let content = serde_json::to_string_pretty(self)?;
+        fs::write(&path, content)?;
+        Ok(())
+    }
+
+    pub fn current_watchlist(&self) -> &Watchlist {
+        &self.watchlists[self.active_watchlist]
+    }
+
+    pub fn current_watchlist_mut(&mut self) -> &mut Watchlist {
+        &mut self.watchlists[self.active_watchlist]
+    }
+
+    pub fn next_watchlist(&mut self) {
+        if !self.watchlists.is_empty() {
+            self.active_watchlist = (self.active_watchlist + 1) % self.watchlists.len();
+        }
+    }
+
+    pub fn prev_watchlist(&mut self) {
+        if !self.watchlists.is_empty() {
+            self.active_watchlist = if self.active_watchlist == 0 {
+                self.watchlists.len() - 1
+            } else {
+                self.active_watchlist - 1
+            };
+        }
+    }
+
+    pub fn add_stock(&mut self, symbol: &str) {
+        let symbol = symbol.to_uppercase();
+        let watchlist = self.current_watchlist_mut();
+        if !watchlist.symbols.contains(&symbol) {
+            watchlist.symbols.push(symbol);
+        }
+    }
+
+    pub fn remove_stock(&mut self, symbol: &str) {
+        let symbol = symbol.to_uppercase();
+        self.current_watchlist_mut().symbols.retain(|s| s != &symbol);
+    }
+
+    pub fn add_watchlist(&mut self, name: &str) {
+        self.watchlists.push(Watchlist {
+            name: name.to_string(),
+            symbols: Vec::new(),
+        });
+        self.active_watchlist = self.watchlists.len() - 1;
+    }
+
+    pub fn remove_watchlist(&mut self) {
+        if self.watchlists.len() > 1 {
+            self.watchlists.remove(self.active_watchlist);
+            if self.active_watchlist >= self.watchlists.len() {
+                self.active_watchlist = self.watchlists.len() - 1;
+            }
+        }
+    }
+
+    pub fn rename_watchlist(&mut self, new_name: &str) {
+        self.current_watchlist_mut().name = new_name.to_string();
+    }
+
+    pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) {
+        let symbol = symbol.to_uppercase();
+        // Check if holding exists, update it
+        if let Some(holding) = self.portfolio.iter_mut().find(|h| h.symbol == symbol) {
+            // Calculate new average price
+            let total_lots = holding.lots + lots;
+            let total_cost = holding.cost_basis() + (lots as u64 * 100) as f64 * avg_price;
+            holding.avg_price = total_cost / (total_lots as u64 * 100) as f64;
+            holding.lots = total_lots;
+        } else {
+            self.portfolio.push(Holding {
+                symbol,
+                lots,
+                avg_price,
+            });
+        }
+    }
+
+    pub fn remove_holding(&mut self, symbol: &str) {
+        let symbol = symbol.to_uppercase();
+        self.portfolio.retain(|h| h.symbol != symbol);
+    }
+
+    pub fn get_holding(&self, symbol: &str) -> Option<&Holding> {
+        let symbol = symbol.to_uppercase();
+        self.portfolio.iter().find(|h| h.symbol == symbol)
+    }
+
+    pub fn portfolio_symbols(&self) -> Vec<String> {
+        self.portfolio.iter().map(|h| h.symbol.clone()).collect()
+    }
+}

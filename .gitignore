@@ -1,0 +1,20 @@
+# Build artifacts
+/target
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment/secrets
+.env
+.env.local
+
+# Local config (user's actual stock data)
+# Note: ~/.config/idx-cli/config.json is outside repo, so no action needed

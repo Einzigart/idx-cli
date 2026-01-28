@@ -1,0 +1,33 @@
+[package]
+name = "idx-cli"
+version = "0.1.0"
+edition = "2024"
+description = "Terminal UI for Indonesian stock market data"
+license = "MIT"
+
+[dependencies]
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "cookies"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# CLI args
+clap = { version = "4", features = ["derive"] }
+
+# Config file
+dirs = "6"
+
+# Error handling
+anyhow = "1"
+
+# Time handling
+chrono = "0.4"
