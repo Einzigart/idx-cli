@@ -99,38 +99,28 @@ fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
                     (Color::Red, Color::LightRed)
                 };
 
-                // Calculate value (price * volume)
                 let value = q.price * q.volume as f64;
-
-                let cells = if is_selected {
-                    // Selected row: bright text on blue background
-                    vec![
-                        Cell::from(q.symbol.clone()).style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                        Cell::from(truncate_str(&q.short_name, 20)).style(Style::default().fg(Color::White)),
-                        Cell::from(format_price(q.price)).style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                        Cell::from(format_change(q.change)).style(Style::default().fg(selected_change_color).add_modifier(Modifier::BOLD)),
-                        Cell::from(format!("{:+.2}%", q.change_percent)).style(Style::default().fg(selected_change_color).add_modifier(Modifier::BOLD)),
-                        Cell::from(format_price(q.open)).style(Style::default().fg(Color::White)),
-                        Cell::from(format_price(q.high)).style(Style::default().fg(Color::White)),
-                        Cell::from(format_price(q.low)).style(Style::default().fg(Color::White)),
-                        Cell::from(format_volume(q.volume)).style(Style::default().fg(Color::White)),
-                        Cell::from(format_value(value)).style(Style::default().fg(Color::Cyan)),
-                    ]
+                let chg_color = if is_selected { selected_change_color } else { change_color };
+                let text_style = if is_selected {
+                    Style::default().fg(Color::White)
                 } else {
-                    // Normal row
-                    vec![
-                        Cell::from(q.symbol.clone()),
-                        Cell::from(truncate_str(&q.short_name, 20)),
-                        Cell::from(format_price(q.price)),
-                        Cell::from(format_change(q.change)).style(Style::default().fg(change_color)),
-                        Cell::from(format!("{:+.2}%", q.change_percent)).style(Style::default().fg(change_color)),
-                        Cell::from(format_price(q.open)),
-                        Cell::from(format_price(q.high)),
-                        Cell::from(format_price(q.low)),
-                        Cell::from(format_volume(q.volume)),
-                        Cell::from(format_value(value)),
-                    ]
+                    Style::default()
                 };
+                let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
+                let chg_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
+
+                let cells = vec![
+                    Cell::from(q.symbol.clone()).style(bold_text),
+                    Cell::from(truncate_str(&q.short_name, 20)).style(text_style),
+                    Cell::from(format_price(q.price)).style(bold_text),
+                    Cell::from(format_change(q.change)).style(chg_style),
+                    Cell::from(format!("{:+.2}%", q.change_percent)).style(chg_style),
+                    Cell::from(format_price(q.open)).style(text_style),
+                    Cell::from(format_price(q.high)).style(text_style),
+                    Cell::from(format_price(q.low)).style(text_style),
+                    Cell::from(format_volume(q.volume)).style(text_style),
+                    Cell::from(format_value(value)).style(if is_selected { text_style.fg(Color::Cyan) } else { Style::default() }),
+                ];
 
                 let row_style = if is_selected {
                     Style::default().bg(Color::Rgb(40, 80, 120))
@@ -206,10 +196,7 @@ fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
 
             let curr_price = quote.map(|q| q.price).unwrap_or(0.0);
             let shares = holding.shares();
-            let value = curr_price * shares as f64;
-            let cost = holding.cost_basis();
-            let pl = value - cost;
-            let pl_percent = if cost > 0.0 { (pl / cost) * 100.0 } else { 0.0 };
+            let (value, cost, pl, pl_percent) = holding.pl_metrics(curr_price);
 
             total_value += value;
             total_cost += cost;
@@ -217,31 +204,26 @@ fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
             let pl_color = if pl >= 0.0 { Color::Green } else { Color::Red };
             let selected_pl_color = if pl >= 0.0 { Color::LightGreen } else { Color::LightRed };
 
-            let cells = if is_selected {
-                vec![
-                    Cell::from(holding.symbol.clone()).style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                    Cell::from(format!("{}", holding.lots)).style(Style::default().fg(Color::White)),
-                    Cell::from(format!("{}", shares)).style(Style::default().fg(Color::White)),
-                    Cell::from(format_price(holding.avg_price)).style(Style::default().fg(Color::White)),
-                    Cell::from(format_price(curr_price)).style(Style::default().fg(Color::White)),
-                    Cell::from(format_value(value)).style(Style::default().fg(Color::White)),
-                    Cell::from(format_value(cost)).style(Style::default().fg(Color::White)),
-                    Cell::from(format_pl(pl)).style(Style::default().fg(selected_pl_color).add_modifier(Modifier::BOLD)),
-                    Cell::from(format!("{:+.2}%", pl_percent)).style(Style::default().fg(selected_pl_color).add_modifier(Modifier::BOLD)),
-                ]
+            let chg_color = if is_selected { selected_pl_color } else { pl_color };
+            let text_style = if is_selected {
+                Style::default().fg(Color::White)
             } else {
-                vec![
-                    Cell::from(holding.symbol.clone()),
-                    Cell::from(format!("{}", holding.lots)),
-                    Cell::from(format!("{}", shares)),
-                    Cell::from(format_price(holding.avg_price)),
-                    Cell::from(format_price(curr_price)),
-                    Cell::from(format_value(value)),
-                    Cell::from(format_value(cost)),
-                    Cell::from(format_pl(pl)).style(Style::default().fg(pl_color)),
-                    Cell::from(format!("{:+.2}%", pl_percent)).style(Style::default().fg(pl_color)),
-                ]
+                Style::default()
             };
+            let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
+            let pl_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
+
+            let cells = vec![
+                Cell::from(holding.symbol.clone()).style(bold_text),
+                Cell::from(format!("{}", holding.lots)).style(text_style),
+                Cell::from(format!("{}", shares)).style(text_style),
+                Cell::from(format_price(holding.avg_price)).style(text_style),
+                Cell::from(format_price(curr_price)).style(text_style),
+                Cell::from(format_value(value)).style(text_style),
+                Cell::from(format_value(cost)).style(text_style),
+                Cell::from(format_pl(pl)).style(pl_style),
+                Cell::from(format!("{:+.2}%", pl_percent)).style(pl_style),
+            ];
 
             let row_style = if is_selected {
                 Style::default().bg(Color::Rgb(80, 40, 80))
@@ -398,15 +380,14 @@ fn format_price(price: f64) -> String {
     if price >= 1000.0 {
         // Format with thousand separators manually
         let int_part = price as u64;
-        let formatted = int_part
+        int_part
             .to_string()
             .as_bytes()
             .rchunks(3)
             .rev()
             .map(|chunk| std::str::from_utf8(chunk).unwrap())
             .collect::<Vec<_>>()
-            .join(",");
-        formatted
+            .join(",")
     } else {
         format!("{:.2}", price)
     }
@@ -420,48 +401,32 @@ fn format_change(change: f64) -> String {
     }
 }
 
-fn format_pl(pl: f64) -> String {
-    let abs_pl = pl.abs();
-    let formatted = if abs_pl >= 1_000_000_000.0 {
-        format!("{:.2}B", abs_pl / 1_000_000_000.0)
-    } else if abs_pl >= 1_000_000.0 {
-        format!("{:.2}M", abs_pl / 1_000_000.0)
-    } else if abs_pl >= 1_000.0 {
-        format!("{:.2}K", abs_pl / 1_000.0)
+fn format_compact(value: f64) -> String {
+    let abs = value.abs();
+    if abs >= 1_000_000_000_000.0 {
+        format!("{:.2}T", abs / 1_000_000_000_000.0)
+    } else if abs >= 1_000_000_000.0 {
+        format!("{:.2}B", abs / 1_000_000_000.0)
+    } else if abs >= 1_000_000.0 {
+        format!("{:.2}M", abs / 1_000_000.0)
+    } else if abs >= 1_000.0 {
+        format!("{:.2}K", abs / 1_000.0)
     } else {
-        format!("{:.0}", abs_pl)
-    };
-    if pl >= 0.0 {
-        format!("+{}", formatted)
-    } else {
-        format!("-{}", formatted)
+        format!("{:.0}", abs)
     }
+}
+
+fn format_pl(pl: f64) -> String {
+    let prefix = if pl >= 0.0 { "+" } else { "-" };
+    format!("{}{}", prefix, format_compact(pl))
 }
 
 fn format_volume(volume: u64) -> String {
-    if volume >= 1_000_000_000 {
-        format!("{:.2}B", volume as f64 / 1_000_000_000.0)
-    } else if volume >= 1_000_000 {
-        format!("{:.2}M", volume as f64 / 1_000_000.0)
-    } else if volume >= 1_000 {
-        format!("{:.2}K", volume as f64 / 1_000.0)
-    } else {
-        format!("{}", volume)
-    }
+    format_compact(volume as f64)
 }
 
 fn format_value(value: f64) -> String {
-    if value >= 1_000_000_000_000.0 {
-        format!("{:.2}T", value / 1_000_000_000_000.0)
-    } else if value >= 1_000_000_000.0 {
-        format!("{:.2}B", value / 1_000_000_000.0)
-    } else if value >= 1_000_000.0 {
-        format!("{:.2}M", value / 1_000_000.0)
-    } else if value >= 1_000.0 {
-        format!("{:.2}K", value / 1_000.0)
-    } else {
-        format!("{:.0}", value)
-    }
+    format_compact(value)
 }
 
 fn truncate_str(s: &str, max_len: usize) -> String {
@@ -622,8 +587,8 @@ fn draw_stock_detail(frame: &mut Frame, app: &App) {
         Span::styled("─── 52-Week Range ", Style::default().fg(Color::Yellow)),
         Span::styled("───────────────────", Style::default().fg(Color::DarkGray)),
     ]));
-    let w52_high = quote.fifty_two_week_high.map(|v| format_price(v)).unwrap_or_else(|| "N/A".to_string());
-    let w52_low = quote.fifty_two_week_low.map(|v| format_price(v)).unwrap_or_else(|| "N/A".to_string());
+    let w52_high = quote.fifty_two_week_high.map(format_price).unwrap_or_else(|| "N/A".to_string());
+    let w52_low = quote.fifty_two_week_low.map(format_price).unwrap_or_else(|| "N/A".to_string());
     content.push(Line::from(vec![
         Span::raw("52W High:       "),
         Span::styled(w52_high, Style::default().fg(Color::Green)),
@@ -643,7 +608,7 @@ fn draw_stock_detail(frame: &mut Frame, app: &App) {
         Span::styled("─── Fundamentals ", Style::default().fg(Color::Yellow)),
         Span::styled("────────────────────", Style::default().fg(Color::DarkGray)),
     ]));
-    let market_cap_str = quote.market_cap.map(|v| format_market_cap(v)).unwrap_or_else(|| "N/A".to_string());
+    let market_cap_str = quote.market_cap.map(format_market_cap).unwrap_or_else(|| "N/A".to_string());
     let pe_str = quote.trailing_pe.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "N/A".to_string());
     let div_yield_str = quote.dividend_yield.map(|v| format!("{:.2}%", v * 100.0)).unwrap_or_else(|| "N/A".to_string());
     content.push(Line::from(vec![
@@ -664,7 +629,7 @@ fn draw_stock_detail(frame: &mut Frame, app: &App) {
         Span::styled("────────────────", Style::default().fg(Color::DarkGray)),
     ]));
     let beta_str = quote.beta.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "N/A".to_string());
-    let avg_vol_str = quote.average_volume.map(|v| format_volume(v)).unwrap_or_else(|| "N/A".to_string());
+    let avg_vol_str = quote.average_volume.map(format_volume).unwrap_or_else(|| "N/A".to_string());
     content.push(Line::from(vec![
         Span::raw("Beta:           "),
         Span::raw(beta_str),
@@ -885,13 +850,5 @@ fn draw_help(frame: &mut Frame, _app: &App) {
 }
 
 fn format_market_cap(cap: u64) -> String {
-    if cap >= 1_000_000_000_000 {
-        format!("{:.2}T", cap as f64 / 1_000_000_000_000.0)
-    } else if cap >= 1_000_000_000 {
-        format!("{:.2}B", cap as f64 / 1_000_000_000.0)
-    } else if cap >= 1_000_000 {
-        format!("{:.2}M", cap as f64 / 1_000_000.0)
-    } else {
-        format!("{}", cap)
-    }
+    format_compact(cap as f64)
 }

@@ -269,21 +269,7 @@ impl App {
         let symbols = &self.config.current_watchlist().symbols;
         if !symbols.is_empty() && self.selected_index < symbols.len() {
             let symbol = symbols[self.selected_index].clone();
-            self.detail_symbol = Some(symbol.clone());
-            self.detail_chart = None;
-            self.chart_loading = true;
-            self.input_mode = InputMode::StockDetail;
-
-            // Fetch chart data
-            match self.client.get_chart(&symbol).await {
-                Ok(chart) => {
-                    self.detail_chart = Some(chart);
-                }
-                Err(_) => {
-                    // Chart data is optional, don't show error
-                }
-            }
-            self.chart_loading = false;
+            self.open_detail(&symbol).await;
         }
     }
 
@@ -394,19 +380,20 @@ impl App {
     pub async fn show_portfolio_detail(&mut self) {
         if !self.config.portfolio.is_empty() && self.portfolio_selected < self.config.portfolio.len() {
             let symbol = self.config.portfolio[self.portfolio_selected].symbol.clone();
-            self.detail_symbol = Some(symbol.clone());
-            self.detail_chart = None;
-            self.chart_loading = true;
-            self.input_mode = InputMode::StockDetail;
-
-            match self.client.get_chart(&symbol).await {
-                Ok(chart) => {
-                    self.detail_chart = Some(chart);
-                }
-                Err(_) => {}
-            }
-            self.chart_loading = false;
+            self.open_detail(&symbol).await;
         }
+    }
+
+    async fn open_detail(&mut self, symbol: &str) {
+        self.detail_symbol = Some(symbol.to_string());
+        self.detail_chart = None;
+        self.chart_loading = true;
+        self.input_mode = InputMode::StockDetail;
+
+        if let Ok(chart) = self.client.get_chart(symbol).await {
+            self.detail_chart = Some(chart);
+        }
+        self.chart_loading = false;
     }
 
     // Help modal methods
@@ -630,10 +617,7 @@ impl App {
         for holding in &self.config.portfolio {
             let curr_price = self.quotes.get(&holding.symbol).map(|q| q.price).unwrap_or(0.0);
             let shares = holding.shares();
-            let value = curr_price * shares as f64;
-            let cost = holding.cost_basis();
-            let pl = value - cost;
-            let pl_percent = if cost > 0.0 { (pl / cost) * 100.0 } else { 0.0 };
+            let (value, cost, pl, pl_percent) = holding.pl_metrics(curr_price);
 
             csv.push_str(&format!(
                 "{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2}\n",
@@ -659,10 +643,7 @@ impl App {
             .map(|holding| {
                 let curr_price = self.quotes.get(&holding.symbol).map(|q| q.price).unwrap_or(0.0);
                 let shares = holding.shares();
-                let value = curr_price * shares as f64;
-                let cost = holding.cost_basis();
-                let pl = value - cost;
-                let pl_percent = if cost > 0.0 { (pl / cost) * 100.0 } else { 0.0 };
+                let (value, cost, pl, pl_percent) = holding.pl_metrics(curr_price);
 
                 serde_json::json!({
                     "symbol": holding.symbol,

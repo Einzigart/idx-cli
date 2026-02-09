@@ -348,7 +348,7 @@ impl YahooClient {
             .and_then(|q| q.close)
             .unwrap_or_default()
             .into_iter()
-            .filter_map(|v| v)
+            .flatten()
             .collect();
 
         if closes.is_empty() {

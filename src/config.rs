@@ -39,6 +39,16 @@ impl Holding {
     pub fn cost_basis(&self) -> f64 {
         self.shares() as f64 * self.avg_price
     }
+
+    /// Calculate P/L metrics given the current market price
+    pub fn pl_metrics(&self, current_price: f64) -> (f64, f64, f64, f64) {
+        let shares = self.shares();
+        let value = current_price * shares as f64;
+        let cost = self.cost_basis();
+        let pl = value - cost;
+        let pl_pct = if cost > 0.0 { (pl / cost) * 100.0 } else { 0.0 };
+        (value, cost, pl, pl_pct)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

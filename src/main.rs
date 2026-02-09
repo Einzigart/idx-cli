@@ -82,6 +82,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     continue;
                 }
 
+                let mut needs_refresh = false;
+
                 match app.input_mode {
                     InputMode::Normal => match key.code {
                         KeyCode::Char('q') => return Ok(()),
@@ -90,8 +92,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         KeyCode::Char('e') => app.start_export(),
                         KeyCode::Char('p') => {
                             app.toggle_view();
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
+                            needs_refresh = true;
                         }
                         KeyCode::Char('a') => {
                             match app.view_mode {
@@ -104,27 +105,23 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 ViewMode::Watchlist => app.remove_selected()?,
                                 ViewMode::Portfolio => app.remove_selected_holding()?,
                             }
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
+                            needs_refresh = true;
                         }
                         KeyCode::Char('r') => {
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
+                            needs_refresh = true;
                         }
                         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
                         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
                         KeyCode::Left | KeyCode::Char('h') => {
                             if app.view_mode == ViewMode::Watchlist {
                                 app.prev_watchlist();
-                                app.refresh_quotes().await?;
-                                last_refresh = Instant::now();
+                                needs_refresh = true;
                             }
                         }
                         KeyCode::Right | KeyCode::Char('l') => {
                             if app.view_mode == ViewMode::Watchlist {
                                 app.next_watchlist();
-                                app.refresh_quotes().await?;
-                                last_refresh = Instant::now();
+                                needs_refresh = true;
                             }
                         }
                         KeyCode::Char('n') => {
@@ -140,8 +137,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         KeyCode::Char('D') => {
                             if app.view_mode == ViewMode::Watchlist {
                                 app.remove_current_watchlist()?;
-                                app.refresh_quotes().await?;
-                                last_refresh = Instant::now();
+                                needs_refresh = true;
                             }
                         }
                         KeyCode::Enter => {
@@ -152,109 +148,12 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         }
                         _ => {}
                     },
-                    InputMode::Adding => match key.code {
-                        KeyCode::Enter => {
-                            app.confirm_add()?;
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
-                        }
-                        KeyCode::Esc => app.cancel_input(),
-                        KeyCode::Backspace => {
-                            app.input_buffer.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            if c.is_alphanumeric() {
-                                app.input_buffer.push(c);
-                            }
-                        }
-                        _ => {}
-                    },
-                    InputMode::WatchlistAdd | InputMode::WatchlistRename => match key.code {
-                        KeyCode::Enter => {
-                            if app.input_mode == InputMode::WatchlistAdd {
-                                app.confirm_watchlist_add()?;
-                            } else {
-                                app.confirm_watchlist_rename()?;
-                            }
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
-                        }
-                        KeyCode::Esc => app.cancel_input(),
-                        KeyCode::Backspace => {
-                            app.input_buffer.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            // Allow alphanumeric and spaces for watchlist names
-                            if c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' {
-                                app.input_buffer.push(c);
-                            }
-                        }
-                        _ => {}
-                    },
-                    InputMode::PortfolioAddSymbol => match key.code {
-                        KeyCode::Enter => {
-                            app.confirm_portfolio_symbol();
-                        }
-                        KeyCode::Esc => app.cancel_portfolio_add(),
-                        KeyCode::Backspace => {
-                            app.input_buffer.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            if c.is_alphanumeric() {
-                                app.input_buffer.push(c);
-                            }
-                        }
-                        _ => {}
-                    },
-                    InputMode::PortfolioAddLots => match key.code {
-                        KeyCode::Enter => {
-                            app.confirm_portfolio_lots();
-                        }
-                        KeyCode::Esc => app.cancel_portfolio_add(),
-                        KeyCode::Backspace => {
-                            app.input_buffer.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            if c.is_ascii_digit() {
-                                app.input_buffer.push(c);
-                            }
-                        }
-                        _ => {}
-                    },
-                    InputMode::PortfolioAddPrice => match key.code {
-                        KeyCode::Enter => {
-                            app.confirm_portfolio_price()?;
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
-                        }
-                        KeyCode::Esc => app.cancel_portfolio_add(),
-                        KeyCode::Backspace => {
-                            app.input_buffer.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            if c.is_ascii_digit() || c == '.' {
-                                app.input_buffer.push(c);
-                            }
-                        }
-                        _ => {}
-                    },
                     InputMode::StockDetail => match key.code {
                         KeyCode::Esc | KeyCode::Enter => app.close_stock_detail(),
                         _ => {}
                     },
                     InputMode::Help => match key.code {
                         KeyCode::Esc | KeyCode::Enter | KeyCode::Char('?') => app.close_help(),
-                        _ => {}
-                    },
-                    InputMode::Search => match key.code {
-                        KeyCode::Enter => app.confirm_search(),
-                        KeyCode::Esc => app.cancel_search(),
-                        KeyCode::Backspace => {
-                            app.input_buffer.pop();
-                        }
-                        KeyCode::Char(c) => {
-                            app.input_buffer.push(c);
-                        }
                         _ => {}
                     },
                     InputMode::ExportMenu => match key.code {
@@ -271,6 +170,64 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         KeyCode::Enter => app.confirm_export()?,
                         _ => {}
                     },
+                    // All text-input modes share common Backspace/Esc handling
+                    _ => match key.code {
+                        KeyCode::Esc => {
+                            match app.input_mode {
+                                InputMode::PortfolioAddSymbol
+                                | InputMode::PortfolioAddLots
+                                | InputMode::PortfolioAddPrice => app.cancel_portfolio_add(),
+                                InputMode::Search => app.cancel_search(),
+                                _ => app.cancel_input(),
+                            }
+                        }
+                        KeyCode::Enter => {
+                            match app.input_mode {
+                                InputMode::Adding => {
+                                    app.confirm_add()?;
+                                    needs_refresh = true;
+                                }
+                                InputMode::WatchlistAdd => {
+                                    app.confirm_watchlist_add()?;
+                                    needs_refresh = true;
+                                }
+                                InputMode::WatchlistRename => {
+                                    app.confirm_watchlist_rename()?;
+                                    needs_refresh = true;
+                                }
+                                InputMode::PortfolioAddSymbol => app.confirm_portfolio_symbol(),
+                                InputMode::PortfolioAddLots => app.confirm_portfolio_lots(),
+                                InputMode::PortfolioAddPrice => {
+                                    app.confirm_portfolio_price()?;
+                                    needs_refresh = true;
+                                }
+                                InputMode::Search => app.confirm_search(),
+                                _ => {}
+                            }
+                        }
+                        KeyCode::Backspace => { app.input_buffer.pop(); }
+                        KeyCode::Char(c) => {
+                            let allowed = match app.input_mode {
+                                InputMode::Adding | InputMode::PortfolioAddSymbol => c.is_alphanumeric(),
+                                InputMode::PortfolioAddLots => c.is_ascii_digit(),
+                                InputMode::PortfolioAddPrice => c.is_ascii_digit() || c == '.',
+                                InputMode::WatchlistAdd | InputMode::WatchlistRename => {
+                                    c.is_alphanumeric() || c == ' ' || c == '-' || c == '_'
+                                }
+                                InputMode::Search => true,
+                                _ => false,
+                            };
+                            if allowed {
+                                app.input_buffer.push(c);
+                            }
+                        }
+                        _ => {}
+                    },
+                }
+
+                if needs_refresh {
+                    app.refresh_quotes().await?;
+                    last_refresh = Instant::now();
                 }
             }
         }
