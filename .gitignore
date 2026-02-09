@@ -15,6 +15,7 @@ Thumbs.db
 # Environment/secrets
 .env
 .env.local
+.claude
 
 # Local config (user's actual stock data)
 # Note: ~/.config/idx-cli/config.json is outside repo, so no action needed

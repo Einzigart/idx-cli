@@ -11,7 +11,9 @@ pub enum InputMode {
     WatchlistAdd,
     WatchlistRename,
     StockDetail,
-    PortfolioAdd,      // Adding holding: symbol,lots,avgprice
+    PortfolioAddSymbol,   // Step 1: Enter symbol
+    PortfolioAddLots,     // Step 2: Enter lots
+    PortfolioAddPrice,    // Step 3: Enter avg price
     Help,              // Help modal with keybindings
     Search,            // Search/filter symbols
     ExportMenu,        // Export menu for CSV/JSON
@@ -56,6 +58,9 @@ pub struct App {
     pub export_format: ExportFormat,
     pub export_scope: ExportScope,
     pub export_menu_selection: usize, // 0: Format, 1: Scope, 2: Export button
+    // Portfolio add workflow state
+    pub pending_symbol: Option<String>,
+    pub pending_lots: Option<u32>,
     client: YahooClient,
 }
 
@@ -81,6 +86,8 @@ impl App {
             export_format: ExportFormat::default(),
             export_scope: ExportScope::default(),
             export_menu_selection: 0,
+            pending_symbol: None,
+            pending_lots: None,
             client: YahooClient::new(),
         })
     }
@@ -198,10 +205,6 @@ impl App {
             .collect()
     }
 
-    pub fn watchlist_name(&self) -> &str {
-        &self.config.current_watchlist().name
-    }
-
     pub fn watchlist_indicator(&self) -> String {
         format!(
             "{} ({}/{})",
@@ -305,35 +308,71 @@ impl App {
     }
 
     pub fn start_portfolio_add(&mut self) {
-        self.input_mode = InputMode::PortfolioAdd;
+        self.input_mode = InputMode::PortfolioAddSymbol;
+        self.input_buffer.clear();
+        self.pending_symbol = None;
+        self.pending_lots = None;
+    }
+
+    pub fn confirm_portfolio_symbol(&mut self) {
+        let symbol = self.input_buffer.trim().to_uppercase();
+        if symbol.is_empty() {
+            self.status_message = Some("Symbol cannot be empty".to_string());
+            self.input_mode = InputMode::Normal;
+        } else {
+            self.pending_symbol = Some(symbol);
+            self.input_mode = InputMode::PortfolioAddLots;
+        }
         self.input_buffer.clear();
     }
 
-    pub fn confirm_portfolio_add(&mut self) -> Result<()> {
-        // Format: SYMBOL,LOTS,AVGPRICE (e.g., "BBCA,10,9500")
-        let parts: Vec<&str> = self.input_buffer.split(',').collect();
-        if parts.len() == 3 {
-            let symbol = parts[0].trim().to_uppercase();
-            if let (Ok(lots), Ok(avg_price)) = (
-                parts[1].trim().parse::<u32>(),
-                parts[2].trim().parse::<f64>(),
-            ) {
-                if lots > 0 && avg_price > 0.0 {
-                    self.config.add_holding(&symbol, lots, avg_price);
-                    self.config.save()?;
-                    self.status_message = Some(format!("Added {} lots of {} @ {}", lots, symbol, avg_price));
-                } else {
-                    self.status_message = Some("Lots and price must be positive".to_string());
-                }
+    pub fn confirm_portfolio_lots(&mut self) {
+        if let Ok(lots) = self.input_buffer.trim().parse::<u32>() {
+            if lots > 0 {
+                self.pending_lots = Some(lots);
+                self.input_mode = InputMode::PortfolioAddPrice;
+                self.input_buffer.clear();
             } else {
-                self.status_message = Some("Invalid format. Use: SYMBOL,LOTS,PRICE".to_string());
+                self.status_message = Some("Lots must be greater than 0".to_string());
+                self.input_buffer.clear();
             }
         } else {
-            self.status_message = Some("Invalid format. Use: SYMBOL,LOTS,PRICE".to_string());
+            self.status_message = Some("Invalid number for lots".to_string());
+            self.input_buffer.clear();
+        }
+    }
+
+    pub fn confirm_portfolio_price(&mut self) -> Result<()> {
+        if let Ok(avg_price) = self.input_buffer.trim().parse::<f64>() {
+            if avg_price > 0.0 {
+                match (&self.pending_symbol, self.pending_lots) {
+                    (Some(symbol), Some(lots)) => {
+                        self.config.add_holding(symbol, lots, avg_price);
+                        self.config.save()?;
+                        self.status_message = Some(format!("Added {} lots of {} @ {}", lots, symbol, avg_price));
+                    }
+                    _ => {
+                        self.status_message = Some("Missing symbol or lots data".to_string());
+                    }
+                }
+            } else {
+                self.status_message = Some("Price must be greater than 0".to_string());
+            }
+        } else {
+            self.status_message = Some("Invalid number for price".to_string());
         }
         self.input_mode = InputMode::Normal;
         self.input_buffer.clear();
+        self.pending_symbol = None;
+        self.pending_lots = None;
         Ok(())
+    }
+
+    pub fn cancel_portfolio_add(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.input_buffer.clear();
+        self.pending_symbol = None;
+        self.pending_lots = None;
     }
 
     pub fn remove_selected_holding(&mut self) -> Result<()> {

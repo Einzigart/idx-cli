@@ -333,12 +333,33 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
                 Span::raw(" | [Enter] Confirm | [Esc] Cancel"),
             ])
         }
-        InputMode::PortfolioAdd => {
+        InputMode::PortfolioAddSymbol => {
             Line::from(vec![
-                Span::raw(" Add holding (SYMBOL,LOTS,AVGPRICE): "),
+                Span::raw(" Symbol: "),
                 Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
                 Span::styled("█", Style::default().fg(Color::Magenta)),
-                Span::raw(" | [Enter] Confirm | [Esc] Cancel"),
+                Span::raw(" | [Enter] Next | [Esc] Cancel"),
+            ])
+        }
+        InputMode::PortfolioAddLots => {
+            let symbol = app.pending_symbol.as_deref().unwrap_or("");
+            Line::from(vec![
+                Span::styled(format!("{} ", symbol), Style::default().fg(Color::Green)),
+                Span::raw("Lots: "),
+                Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
+                Span::styled("█", Style::default().fg(Color::Magenta)),
+                Span::raw(" | [Enter] Next | [Esc] Cancel"),
+            ])
+        }
+        InputMode::PortfolioAddPrice => {
+            let symbol = app.pending_symbol.as_deref().unwrap_or("");
+            let lots = app.pending_lots.unwrap_or(0);
+            Line::from(vec![
+                Span::styled(format!("{} {}lot ", symbol, lots), Style::default().fg(Color::Green)),
+                Span::raw("Avg Price: "),
+                Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
+                Span::styled("█", Style::default().fg(Color::Magenta)),
+                Span::raw(" | [Enter] Add | [Esc] Cancel"),
             ])
         }
         InputMode::StockDetail => {
@@ -843,7 +864,7 @@ fn draw_help(frame: &mut Frame, _app: &App) {
         binding("D", "Delete watchlist"),
         Line::from(""),
         section("Portfolio"),
-        binding("a", "Add holding (SYMBOL,LOTS,PRICE)"),
+        binding("a", "Add holding"),
         binding("d", "Delete selected holding"),
     ];
 

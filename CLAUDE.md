@@ -20,7 +20,7 @@ idx-cli is a terminal UI (TUI) application for tracking Indonesian stock market 
 ```bash
 cargo build              # Build debug
 cargo build --release    # Build release
-cargo run                # Run with default 5s refresh
+cargo run                # Run with default 1s refresh
 cargo run -- -i 10       # Run with custom refresh interval (seconds)
 cargo test               # Run tests
 cargo clippy             # Lint
@@ -42,11 +42,13 @@ src/
 
 ### Key Patterns
 
-**State Machine**: `InputMode` enum controls UI behavior (Normal, Adding, WatchlistAdd, WatchlistRename, StockDetail, PortfolioAdd). `ViewMode` toggles between Watchlist and Portfolio views.
+**State Machine**: `InputMode` enum controls UI behavior (Normal, Adding, WatchlistAdd, WatchlistRename, StockDetail, PortfolioAddSymbol/Lots/Price, Help, Search, ExportMenu). `ViewMode` toggles between Watchlist and Portfolio views.
 
 **Data Flow**: `App` holds `Config` (persistent), `quotes` cache (volatile), and `YahooClient`. Quote refresh is triggered by timer or user action. Config saves to `~/.config/idx-cli/config.json`.
 
 **Yahoo Finance Auth**: The `YahooClient` fetches a crumb token from the main page and uses cookies for authenticated API requests. Crumb refresh happens on 401 responses.
+
+**Multi-Step Input**: Portfolio add uses a wizard flow (Symbol → Lots → Price) with `pending_symbol`/`pending_lots` fields on `App`. Each step validates independently. `cancel_portfolio_add()` resets all pending state. Prefer this pattern over comma-separated single-line input for multi-field forms.
 
 **IDX Symbol Convention**: Stock codes (e.g., "BBCA") are internally converted to Yahoo format ("BBCA.JK") for API calls, then stripped back for display.
 
@@ -55,7 +57,7 @@ src/
 | Key | Watchlist | Portfolio |
 |-----|-----------|-----------|
 | `p` | Switch to Portfolio | Switch to Watchlist |
-| `a` | Add stock | Add holding (SYMBOL,LOTS,PRICE) |
+| `a` | Add stock | Add holding (step-by-step) |
 | `d` | Delete selected | Delete selected |
 | `r` | Refresh quotes | Refresh quotes |
 | `Enter` | Stock detail popup | Stock detail popup |
@@ -65,3 +67,15 @@ src/
 | `R` | Rename watchlist | - |
 | `D` | Delete watchlist | - |
 | `q` | Quit | Quit |
+
+## Config File
+
+Stored at `~/.config/idx-cli/config.json`. Schema managed by `Config` struct in `config.rs`. Contains:
+- `watchlists`: Vec of `{name, symbols: Vec<String>}` with `current_watchlist` index
+- `portfolio`: Vec of `{symbol, lots: u32, avg_price: f64}`
+
+## Code Conventions
+
+- Remove unused functions/fields rather than keeping them for "future use"
+- Input character filtering is done in `main.rs` key handlers (e.g., digits-only for numeric fields)
+- Footer bar in `ui.rs::draw_footer()` provides context-sensitive prompts per `InputMode`

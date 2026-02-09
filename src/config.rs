@@ -209,11 +209,6 @@ impl Config {
         self.portfolio.retain(|h| h.symbol != symbol);
     }
 
-    pub fn get_holding(&self, symbol: &str) -> Option<&Holding> {
-        let symbol = symbol.to_uppercase();
-        self.portfolio.iter().find(|h| h.symbol == symbol)
-    }
-
     pub fn portfolio_symbols(&self) -> Vec<String> {
         self.portfolio.iter().map(|h| h.symbol.clone()).collect()
     }

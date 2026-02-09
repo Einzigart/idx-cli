@@ -38,7 +38,6 @@ pub struct StockQuote {
 /// Historical price data for sparkline chart
 #[derive(Debug, Clone)]
 pub struct ChartData {
-    pub symbol: String,
     pub closes: Vec<f64>,
     pub high: f64,
     pub low: f64,
@@ -311,16 +310,6 @@ impl YahooClient {
         Ok(quotes)
     }
 
-    /// Fetch quote for a single stock
-    pub async fn get_quote(&mut self, symbol: &str) -> Result<StockQuote> {
-        let quotes = self.get_quotes(&[symbol.to_string()]).await?;
-        let symbol_upper = symbol.to_uppercase();
-        quotes
-            .get(&symbol_upper)
-            .cloned()
-            .ok_or_else(|| anyhow!("No data found for {}", symbol))
-    }
-
     /// Fetch historical chart data for sparkline (3 months daily)
     pub async fn get_chart(&self, symbol: &str) -> Result<ChartData> {
         let yahoo_symbol = Self::to_yahoo_symbol(symbol);
@@ -369,12 +358,7 @@ impl YahooClient {
         let high = closes.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let low = closes.iter().cloned().fold(f64::INFINITY, f64::min);
 
-        Ok(ChartData {
-            symbol: symbol.to_uppercase(),
-            closes,
-            high,
-            low,
-        })
+        Ok(ChartData { closes, high, low })
     }
 }
 

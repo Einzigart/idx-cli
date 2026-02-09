@@ -21,7 +21,7 @@ use tokio::time::Instant;
 #[command(about = "Terminal UI for Indonesian stock market data", long_about = None)]
 struct Cli {
     /// Refresh interval in seconds
-    #[arg(short, long, default_value = "5")]
+    #[arg(short, long, default_value = "1")]
     interval: u64,
 }
 
@@ -191,19 +191,48 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         }
                         _ => {}
                     },
-                    InputMode::PortfolioAdd => match key.code {
+                    InputMode::PortfolioAddSymbol => match key.code {
                         KeyCode::Enter => {
-                            app.confirm_portfolio_add()?;
-                            app.refresh_quotes().await?;
-                            last_refresh = Instant::now();
+                            app.confirm_portfolio_symbol();
                         }
-                        KeyCode::Esc => app.cancel_input(),
+                        KeyCode::Esc => app.cancel_portfolio_add(),
                         KeyCode::Backspace => {
                             app.input_buffer.pop();
                         }
                         KeyCode::Char(c) => {
-                            // Allow alphanumeric, comma, and dot for portfolio input
-                            if c.is_alphanumeric() || c == ',' || c == '.' {
+                            if c.is_alphanumeric() {
+                                app.input_buffer.push(c);
+                            }
+                        }
+                        _ => {}
+                    },
+                    InputMode::PortfolioAddLots => match key.code {
+                        KeyCode::Enter => {
+                            app.confirm_portfolio_lots();
+                        }
+                        KeyCode::Esc => app.cancel_portfolio_add(),
+                        KeyCode::Backspace => {
+                            app.input_buffer.pop();
+                        }
+                        KeyCode::Char(c) => {
+                            if c.is_ascii_digit() {
+                                app.input_buffer.push(c);
+                            }
+                        }
+                        _ => {}
+                    },
+                    InputMode::PortfolioAddPrice => match key.code {
+                        KeyCode::Enter => {
+                            app.confirm_portfolio_price()?;
+                            app.refresh_quotes().await?;
+                            last_refresh = Instant::now();
+                        }
+                        KeyCode::Esc => app.cancel_portfolio_add(),
+                        KeyCode::Backspace => {
+                            app.input_buffer.pop();
+                        }
+                        KeyCode::Char(c) => {
+                            if c.is_ascii_digit() || c == '.' {
                                 app.input_buffer.push(c);
                             }
                         }
