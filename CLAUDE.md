@@ -52,6 +52,10 @@ src/
 
 **IDX Symbol Convention**: Stock codes (e.g., "BBCA") are internally converted to Yahoo format ("BBCA.JK") for API calls, then stripped back for display.
 
+**Responsive Columns**: `ColumnDef` structs with priority tiers (1=always visible, 4=only on wide terminals). `visible_columns()` greedily includes columns from highest to lowest priority until available width is exhausted. Stretch columns (Name for watchlist, Value for portfolio) absorb extra space via `Constraint::Min()`.
+
+**Column Sorting**: `SortDirection` enum with `cycle_sort_column()` / `toggle_sort_direction()`. Sort applied in `get_filtered_watchlist()` / `get_filtered_portfolio()` after search filtering. Free functions `compare_watchlist_column()` / `compare_portfolio_column()` handle per-column type-aware comparison. Export functions use `get_sorted_watchlist()` (insertion order, not sorted).
+
 ## Keybindings (Normal Mode)
 
 | Key | Watchlist | Portfolio |
@@ -66,6 +70,9 @@ src/
 | `n` | New watchlist | - |
 | `R` | Rename watchlist | - |
 | `D` | Delete watchlist | - |
+| `s` | Cycle sort column | Cycle sort column |
+| `S` | Toggle sort direction | Toggle sort direction |
+| `c` | - | Portfolio allocation chart |
 | `q` | Quit | Quit |
 
 ## Config File

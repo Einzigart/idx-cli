@@ -8,6 +8,70 @@ use ratatui::{
     Frame,
 };
 
+struct ColumnDef {
+    name: &'static str,
+    width: u16,
+    priority: u8,
+}
+
+const WATCHLIST_COLUMNS: &[ColumnDef] = &[
+    ColumnDef { name: "Symbol",   width: 8,  priority: 1 },
+    ColumnDef { name: "Name",     width: 22, priority: 3 },
+    ColumnDef { name: "Price",    width: 10, priority: 1 },
+    ColumnDef { name: "Change",   width: 10, priority: 2 },
+    ColumnDef { name: "Change %", width: 10, priority: 1 },
+    ColumnDef { name: "Open",     width: 10, priority: 4 },
+    ColumnDef { name: "High",     width: 10, priority: 4 },
+    ColumnDef { name: "Low",      width: 10, priority: 4 },
+    ColumnDef { name: "Volume",   width: 12, priority: 2 },
+    ColumnDef { name: "Value",    width: 14, priority: 3 },
+];
+
+const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
+    ColumnDef { name: "Symbol",     width: 8,  priority: 1 },
+    ColumnDef { name: "Lots",       width: 6,  priority: 2 },
+    ColumnDef { name: "Shares",     width: 8,  priority: 3 },
+    ColumnDef { name: "Avg Price",  width: 10, priority: 3 },
+    ColumnDef { name: "Curr Price", width: 10, priority: 1 },
+    ColumnDef { name: "Value",      width: 12, priority: 2 },
+    ColumnDef { name: "Cost",       width: 12, priority: 3 },
+    ColumnDef { name: "P/L",        width: 12, priority: 2 },
+    ColumnDef { name: "P/L %",      width: 10, priority: 1 },
+];
+
+/// Returns indices of columns that fit within available_width, prioritized by tier.
+fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Vec<usize> {
+    let max_priority = columns.iter().map(|c| c.priority).max().unwrap_or(1);
+    let mut visible: Vec<usize> = Vec::new();
+
+    for priority_cutoff in 1..=max_priority {
+        let candidate: Vec<usize> = columns
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.priority <= priority_cutoff)
+            .map(|(i, _)| i)
+            .collect();
+        let total_width: u16 = candidate.iter().map(|&i| columns[i].width).sum();
+        if total_width <= available_width {
+            visible = candidate;
+        } else {
+            break;
+        }
+    }
+
+    // Fallback: at minimum show priority-1 columns
+    if visible.is_empty() {
+        visible = columns
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.priority == 1)
+            .map(|(i, _)| i)
+            .collect();
+    }
+
+    visible
+}
+
 pub fn draw(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -40,6 +104,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // Render export menu if in ExportMenu mode
     if app.input_mode == InputMode::ExportMenu {
         draw_export_menu(frame, app);
+    }
+
+    // Render portfolio allocation chart
+    if app.input_mode == InputMode::PortfolioChart {
+        draw_portfolio_chart(frame, app);
     }
 }
 
@@ -79,10 +148,41 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(header, area);
 }
 
+fn watchlist_cell(col_idx: usize, q: &StockQuote, bold_text: Style, text_style: Style, chg_style: Style, is_selected: bool) -> Cell<'static> {
+    match col_idx {
+        0 => Cell::from(q.symbol.clone()).style(bold_text),
+        1 => Cell::from(truncate_str(&q.short_name, 20)).style(text_style),
+        2 => Cell::from(format_price(q.price)).style(bold_text),
+        3 => Cell::from(format_change(q.change)).style(chg_style),
+        4 => Cell::from(format!("{:+.2}%", q.change_percent)).style(chg_style),
+        5 => Cell::from(format_price(q.open)).style(text_style),
+        6 => Cell::from(format_price(q.high)).style(text_style),
+        7 => Cell::from(format_price(q.low)).style(text_style),
+        8 => Cell::from(format_volume(q.volume)).style(text_style),
+        9 => {
+            let value = q.price * q.volume as f64;
+            Cell::from(format_value(value)).style(if is_selected { text_style.fg(Color::Cyan) } else { Style::default() })
+        }
+        _ => Cell::from(""),
+    }
+}
+
 fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
-    let header_cells = ["Symbol", "Name", "Price", "Change", "Change %", "Open", "High", "Low", "Volume", "Value"]
+    let available_width = area.width.saturating_sub(2); // borders
+    let vis = visible_columns(WATCHLIST_COLUMNS, available_width);
+
+    let header_cells: Vec<Cell> = vis
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+        .map(|&i| {
+            let name = WATCHLIST_COLUMNS[i].name;
+            let label = if app.watchlist_sort_column == Some(i) {
+                format!("{} {}", name, app.watchlist_sort_direction.indicator())
+            } else {
+                name.to_string()
+            };
+            Cell::from(label).style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        })
+        .collect();
     let header = Row::new(header_cells).height(1);
 
     let watchlist = app.get_filtered_watchlist();
@@ -99,7 +199,6 @@ fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
                     (Color::Red, Color::LightRed)
                 };
 
-                let value = q.price * q.volume as f64;
                 let chg_color = if is_selected { selected_change_color } else { change_color };
                 let text_style = if is_selected {
                     Style::default().fg(Color::White)
@@ -109,18 +208,10 @@ fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
                 let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
                 let chg_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
 
-                let cells = vec![
-                    Cell::from(q.symbol.clone()).style(bold_text),
-                    Cell::from(truncate_str(&q.short_name, 20)).style(text_style),
-                    Cell::from(format_price(q.price)).style(bold_text),
-                    Cell::from(format_change(q.change)).style(chg_style),
-                    Cell::from(format!("{:+.2}%", q.change_percent)).style(chg_style),
-                    Cell::from(format_price(q.open)).style(text_style),
-                    Cell::from(format_price(q.high)).style(text_style),
-                    Cell::from(format_price(q.low)).style(text_style),
-                    Cell::from(format_volume(q.volume)).style(text_style),
-                    Cell::from(format_value(value)).style(if is_selected { text_style.fg(Color::Cyan) } else { Style::default() }),
-                ];
+                let cells: Vec<Cell> = vis
+                    .iter()
+                    .map(|&col| watchlist_cell(col, q, bold_text, text_style, chg_style, is_selected))
+                    .collect();
 
                 let row_style = if is_selected {
                     Style::default().bg(Color::Rgb(40, 80, 120))
@@ -136,50 +227,81 @@ fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
                     Style::default()
                 };
 
-                let cells = vec![
-                    Cell::from(symbol.as_str()),
-                    Cell::from("Loading..."),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                    Cell::from("-"),
-                ];
+                let cells: Vec<Cell> = vis
+                    .iter()
+                    .map(|&col| {
+                        if col == 0 {
+                            Cell::from(symbol.as_str().to_string())
+                        } else {
+                            Cell::from("-")
+                        }
+                    })
+                    .collect();
                 Row::new(cells).style(style)
             }
         })
         .collect();
 
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Length(8),  // Symbol
-            Constraint::Length(22), // Name
-            Constraint::Length(10), // Price
-            Constraint::Length(10), // Change
-            Constraint::Length(10), // Change %
-            Constraint::Length(10), // Open
-            Constraint::Length(10), // High
-            Constraint::Length(10), // Low
-            Constraint::Length(12), // Volume
-            Constraint::Length(14), // Value
-        ],
-    )
-    .header(header)
-    .block(Block::default().borders(Borders::ALL).title(" Watchlist "));
+    // Build constraints — stretch Name column (idx 1) if extra space
+    let total_vis_width: u16 = vis.iter().map(|&i| WATCHLIST_COLUMNS[i].width).sum();
+    let constraints: Vec<Constraint> = vis
+        .iter()
+        .map(|&i| {
+            if i == 1 && available_width > total_vis_width {
+                Constraint::Min(WATCHLIST_COLUMNS[i].width)
+            } else {
+                Constraint::Length(WATCHLIST_COLUMNS[i].width)
+            }
+        })
+        .collect();
+
+    let table = Table::new(rows, constraints)
+        .header(header)
+        .block(Block::default().borders(Borders::ALL).title(" Watchlist "));
 
     let mut state = TableState::default();
     state.select(Some(app.selected_index));
     frame.render_stateful_widget(table, area, &mut state);
 }
 
+fn portfolio_cell(
+    col_idx: usize,
+    holding: &crate::config::Holding,
+    metrics: (f64, f64, f64, f64, f64), // curr_price, value, cost, pl, pl_percent
+    styles: (Style, Style, Style),       // bold_text, text_style, pl_style
+) -> Cell<'static> {
+    let (curr_price, value, cost, pl, pl_percent) = metrics;
+    let (bold_text, text_style, pl_style) = styles;
+    match col_idx {
+        0 => Cell::from(holding.symbol.clone()).style(bold_text),
+        1 => Cell::from(format!("{}", holding.lots)).style(text_style),
+        2 => Cell::from(format!("{}", holding.shares())).style(text_style),
+        3 => Cell::from(format_price(holding.avg_price)).style(text_style),
+        4 => Cell::from(format_price(curr_price)).style(text_style),
+        5 => Cell::from(format_value(value)).style(text_style),
+        6 => Cell::from(format_value(cost)).style(text_style),
+        7 => Cell::from(format_pl(pl)).style(pl_style),
+        8 => Cell::from(format!("{:+.2}%", pl_percent)).style(pl_style),
+        _ => Cell::from(""),
+    }
+}
+
 fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
-    let header_cells = ["Symbol", "Lots", "Shares", "Avg Price", "Curr Price", "Value", "Cost", "P/L", "P/L %"]
+    let available_width = area.width.saturating_sub(2);
+    let vis = visible_columns(PORTFOLIO_COLUMNS, available_width);
+
+    let header_cells: Vec<Cell> = vis
         .iter()
-        .map(|h| Cell::from(*h).style(Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)));
+        .map(|&i| {
+            let name = PORTFOLIO_COLUMNS[i].name;
+            let label = if app.portfolio_sort_column == Some(i) {
+                format!("{} {}", name, app.portfolio_sort_direction.indicator())
+            } else {
+                name.to_string()
+            };
+            Cell::from(label).style(Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))
+        })
+        .collect();
     let header = Row::new(header_cells).height(1);
 
     // Calculate totals
@@ -195,7 +317,6 @@ fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
             let quote = app.quotes.get(&holding.symbol);
 
             let curr_price = quote.map(|q| q.price).unwrap_or(0.0);
-            let shares = holding.shares();
             let (value, cost, pl, pl_percent) = holding.pl_metrics(curr_price);
 
             total_value += value;
@@ -213,17 +334,10 @@ fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
             let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
             let pl_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
 
-            let cells = vec![
-                Cell::from(holding.symbol.clone()).style(bold_text),
-                Cell::from(format!("{}", holding.lots)).style(text_style),
-                Cell::from(format!("{}", shares)).style(text_style),
-                Cell::from(format_price(holding.avg_price)).style(text_style),
-                Cell::from(format_price(curr_price)).style(text_style),
-                Cell::from(format_value(value)).style(text_style),
-                Cell::from(format_value(cost)).style(text_style),
-                Cell::from(format_pl(pl)).style(pl_style),
-                Cell::from(format!("{:+.2}%", pl_percent)).style(pl_style),
-            ];
+            let cells: Vec<Cell> = vis
+                .iter()
+                .map(|&col| portfolio_cell(col, holding, (curr_price, value, cost, pl, pl_percent), (bold_text, text_style, pl_style)))
+                .collect();
 
             let row_style = if is_selected {
                 Style::default().bg(Color::Rgb(80, 40, 80))
@@ -247,27 +361,27 @@ fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
         total_pl_percent
     );
 
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Length(8),  // Symbol
-            Constraint::Length(6),  // Lots
-            Constraint::Length(8),  // Shares
-            Constraint::Length(10), // Avg Price
-            Constraint::Length(10), // Curr Price
-            Constraint::Length(12), // Value
-            Constraint::Length(12), // Cost
-            Constraint::Length(12), // P/L
-            Constraint::Length(10), // P/L %
-        ],
-    )
-    .header(header)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title)
-            .title_style(Style::default().fg(total_pl_color))
-    );
+    // Build constraints — stretch Value column (idx 5) if extra space
+    let total_vis_width: u16 = vis.iter().map(|&i| PORTFOLIO_COLUMNS[i].width).sum();
+    let constraints: Vec<Constraint> = vis
+        .iter()
+        .map(|&i| {
+            if i == 5 && available_width > total_vis_width {
+                Constraint::Min(PORTFOLIO_COLUMNS[i].width)
+            } else {
+                Constraint::Length(PORTFOLIO_COLUMNS[i].width)
+            }
+        })
+        .collect();
+
+    let table = Table::new(rows, constraints)
+        .header(header)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .title_style(Style::default().fg(total_pl_color))
+        );
 
     let mut state = TableState::default();
     state.select(Some(app.portfolio_selected));
@@ -278,8 +392,8 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
     let content = match app.input_mode {
         InputMode::Normal => {
             let help = match app.view_mode {
-                ViewMode::Watchlist => " [p] Portfolio | [a] Add | [d] Del | [r] Refresh | [q] Quit | [Enter] Detail | [↑↓] Nav | [←→] WL ",
-                ViewMode::Portfolio => " [p] Watchlist | [a] Add | [d] Del | [r] Refresh | [q] Quit | [Enter] Detail | [↑↓] Nav ",
+                ViewMode::Watchlist => " [a] Add [d] Del [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help ",
+                ViewMode::Portfolio => " [a] Add [d] Del [r] Refresh [s] Sort [c] Chart [p] Watchlist [Enter] Detail [↑↓] Nav [?] Help ",
             };
             if let Some(msg) = &app.status_message {
                 Line::from(vec![
@@ -367,6 +481,12 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
         InputMode::ExportMenu => {
             Line::from(Span::styled(
                 " [↑↓/jk] Navigate | [←→/hl] Toggle | [Enter] Confirm | [Esc] Cancel ",
+                Style::default().fg(Color::DarkGray),
+            ))
+        }
+        InputMode::PortfolioChart => {
+            Line::from(Span::styled(
+                " [c/Enter/Esc] Close allocation chart ",
                 Style::default().fg(Color::DarkGray),
             ))
         }
@@ -782,6 +902,64 @@ fn draw_export_menu(frame: &mut Frame, app: &App) {
     frame.render_widget(menu, inner_area);
 }
 
+fn draw_portfolio_chart(frame: &mut Frame, app: &App) {
+    let area = centered_rect(60, 70, frame.area());
+    frame.render_widget(Clear, area);
+
+    let outer_block = Block::default()
+        .title(" Portfolio Allocation ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta))
+        .style(Style::default().bg(Color::Black));
+
+    let inner_area = outer_block.inner(area);
+    frame.render_widget(outer_block, area);
+
+    let allocations = app.portfolio_allocation();
+    let total_value: f64 = allocations.iter().map(|(_, v, _)| v).sum();
+
+    let bar_colors = [
+        Color::Cyan, Color::Green, Color::Yellow, Color::Magenta,
+        Color::Blue, Color::Red, Color::LightCyan, Color::LightGreen,
+    ];
+
+    let bar_max_width = inner_area.width.saturating_sub(24) as usize; // space for label + pct + value
+
+    let mut content = vec![
+        Line::from(vec![
+            Span::raw("  Total Value: "),
+            Span::styled(format_value(total_value), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(""),
+    ];
+
+    for (i, (symbol, value, pct)) in allocations.iter().enumerate() {
+        let color = bar_colors[i % bar_colors.len()];
+        let filled = ((pct / 100.0) * bar_max_width as f64).round() as usize;
+        let empty = bar_max_width.saturating_sub(filled);
+
+        let bar_filled: String = "█".repeat(filled);
+        let bar_empty: String = "░".repeat(empty);
+
+        content.push(Line::from(vec![
+            Span::styled(format!("  {:6} ", symbol), Style::default().fg(color).add_modifier(Modifier::BOLD)),
+            Span::styled(bar_filled, Style::default().fg(color)),
+            Span::styled(bar_empty, Style::default().fg(Color::DarkGray)),
+            Span::raw(format!(" {:5.1}% ", pct)),
+            Span::styled(format_value(*value), Style::default().fg(Color::DarkGray)),
+        ]));
+    }
+
+    content.push(Line::from(""));
+    content.push(Line::from(Span::styled(
+        "  [c/Enter/Esc] Close",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    let chart = Paragraph::new(content).alignment(Alignment::Left);
+    frame.render_widget(chart, inner_area);
+}
+
 fn draw_help(frame: &mut Frame, _app: &App) {
     let area = centered_rect(50, 70, frame.area());
     frame.render_widget(Clear, area);
@@ -831,11 +1009,14 @@ fn draw_help(frame: &mut Frame, _app: &App) {
         section("Portfolio"),
         binding("a", "Add holding"),
         binding("d", "Delete selected holding"),
+        binding("c", "Portfolio allocation chart"),
     ];
 
-    // Add search/export hints if those features exist
+    // Add sort/search/export hints
     content.push(Line::from(""));
     content.push(section("Other"));
+    content.push(binding("s", "Cycle sort column"));
+    content.push(binding("S", "Toggle sort direction"));
     content.push(binding("/", "Search / filter symbols"));
     content.push(binding("e", "Export data (CSV/JSON)"));
 

@@ -2,6 +2,7 @@ use crate::api::{ChartData, StockQuote, YahooClient};
 use crate::config::Config;
 use anyhow::Result;
 use chrono::Local;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +18,7 @@ pub enum InputMode {
     Help,              // Help modal with keybindings
     Search,            // Search/filter symbols
     ExportMenu,        // Export menu for CSV/JSON
+    PortfolioChart,    // Portfolio allocation chart
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +39,28 @@ pub enum ExportScope {
     #[default]
     Watchlist,
     Portfolio,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortDirection {
+    Ascending,
+    Descending,
+}
+
+impl SortDirection {
+    pub fn toggle(&mut self) {
+        *self = match self {
+            SortDirection::Ascending => SortDirection::Descending,
+            SortDirection::Descending => SortDirection::Ascending,
+        };
+    }
+
+    pub fn indicator(&self) -> &'static str {
+        match self {
+            SortDirection::Ascending => "▲",
+            SortDirection::Descending => "▼",
+        }
+    }
 }
 
 pub struct App {
@@ -61,6 +85,11 @@ pub struct App {
     // Portfolio add workflow state
     pub pending_symbol: Option<String>,
     pub pending_lots: Option<u32>,
+    // Sort state
+    pub watchlist_sort_column: Option<usize>,
+    pub watchlist_sort_direction: SortDirection,
+    pub portfolio_sort_column: Option<usize>,
+    pub portfolio_sort_direction: SortDirection,
     client: YahooClient,
 }
 
@@ -88,6 +117,10 @@ impl App {
             export_menu_selection: 0,
             pending_symbol: None,
             pending_lots: None,
+            watchlist_sort_column: None,
+            watchlist_sort_direction: SortDirection::Ascending,
+            portfolio_sort_column: None,
+            portfolio_sort_direction: SortDirection::Ascending,
             client: YahooClient::new(),
         })
     }
@@ -148,12 +181,41 @@ impl App {
         self.config.next_watchlist();
         self.selected_index = 0;
         self.quotes.clear();
+        self.watchlist_sort_column = None;
     }
 
     pub fn prev_watchlist(&mut self) {
         self.config.prev_watchlist();
         self.selected_index = 0;
         self.quotes.clear();
+        self.watchlist_sort_column = None;
+    }
+
+    // Sort methods
+    pub fn cycle_sort_column(&mut self) {
+        let num_columns = match self.view_mode {
+            ViewMode::Watchlist => 10, // WATCHLIST_COLUMNS count
+            ViewMode::Portfolio => 9,  // PORTFOLIO_COLUMNS count
+        };
+        let (col, selected) = match self.view_mode {
+            ViewMode::Watchlist => (&mut self.watchlist_sort_column, &mut self.selected_index),
+            ViewMode::Portfolio => (&mut self.portfolio_sort_column, &mut self.portfolio_selected),
+        };
+        *col = match *col {
+            None => Some(0),
+            Some(i) if i + 1 >= num_columns => None,
+            Some(i) => Some(i + 1),
+        };
+        *selected = 0;
+    }
+
+    pub fn toggle_sort_direction(&mut self) {
+        let (dir, selected) = match self.view_mode {
+            ViewMode::Watchlist => (&mut self.watchlist_sort_direction, &mut self.selected_index),
+            ViewMode::Portfolio => (&mut self.portfolio_sort_direction, &mut self.portfolio_selected),
+        };
+        dir.toggle();
+        *selected = 0;
     }
 
     pub fn start_adding(&mut self) {
@@ -405,6 +467,42 @@ impl App {
         self.input_mode = InputMode::Normal;
     }
 
+    // Portfolio chart methods
+    pub fn show_portfolio_chart(&mut self) {
+        if !self.config.portfolio.is_empty() {
+            self.input_mode = InputMode::PortfolioChart;
+        }
+    }
+
+    pub fn close_portfolio_chart(&mut self) {
+        self.input_mode = InputMode::Normal;
+    }
+
+    /// Returns (symbol, value, percentage) sorted by value descending.
+    pub fn portfolio_allocation(&self) -> Vec<(String, f64, f64)> {
+        let mut items: Vec<(String, f64)> = self
+            .config
+            .portfolio
+            .iter()
+            .map(|h| {
+                let price = self.quotes.get(&h.symbol).map(|q| q.price).unwrap_or(0.0);
+                let value = price * h.shares() as f64;
+                (h.symbol.clone(), value)
+            })
+            .collect();
+
+        items.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+
+        let total: f64 = items.iter().map(|(_, v)| v).sum();
+        items
+            .into_iter()
+            .map(|(sym, val)| {
+                let pct = if total > 0.0 { (val / total) * 100.0 } else { 0.0 };
+                (sym, val, pct)
+            })
+            .collect()
+    }
+
     // Search/filter methods
     pub fn start_search(&mut self) {
         self.input_mode = InputMode::Search;
@@ -438,26 +536,35 @@ impl App {
     }
 
     pub fn get_filtered_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
-        let items = self.get_sorted_watchlist();
-        if !self.search_active {
-            return items;
+        let mut items = self.get_sorted_watchlist();
+        if self.search_active {
+            items.retain(|(symbol, _)| symbol.to_uppercase().contains(&self.search_query));
+        }
+        if let Some(col) = self.watchlist_sort_column {
+            let dir = self.watchlist_sort_direction;
+            items.sort_by(|a, b| compare_watchlist_column(col, a, b, dir));
         }
         items
-            .into_iter()
-            .filter(|(symbol, _)| symbol.to_uppercase().contains(&self.search_query))
-            .collect()
     }
 
     pub fn get_filtered_portfolio(&self) -> Vec<(usize, &crate::config::Holding)> {
-        let items: Vec<(usize, &crate::config::Holding)> =
+        let mut items: Vec<(usize, &crate::config::Holding)> =
             self.config.portfolio.iter().enumerate().collect();
-        if !self.search_active {
-            return items;
+        if self.search_active {
+            items.retain(|(_, h)| h.symbol.to_uppercase().contains(&self.search_query));
+        }
+        if let Some(col) = self.portfolio_sort_column {
+            let dir = self.portfolio_sort_direction;
+            let quotes = &self.quotes;
+            items.sort_by(|a, b| {
+                let ord = compare_portfolio_column(col, a.1, b.1, quotes);
+                match dir {
+                    SortDirection::Ascending => ord,
+                    SortDirection::Descending => ord.reverse(),
+                }
+            });
         }
         items
-            .into_iter()
-            .filter(|(_, h)| h.symbol.to_uppercase().contains(&self.search_query))
-            .collect()
     }
 
     // Export menu methods
@@ -659,5 +766,69 @@ impl App {
             })
             .collect();
         serde_json::to_string_pretty(&data).unwrap_or_else(|_| "[]".to_string())
+    }
+}
+
+/// Helper: compare two f64 values with NaN safety
+fn cmp_f64(a: f64, b: f64) -> Ordering {
+    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
+}
+
+/// Compare two watchlist rows by column index.
+/// None quotes (still loading) always sort to the bottom, regardless of direction.
+fn compare_watchlist_column(
+    col: usize,
+    a: &(&String, Option<&StockQuote>),
+    b: &(&String, Option<&StockQuote>),
+    direction: SortDirection,
+) -> Ordering {
+    match (a.1, b.1) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => Ordering::Greater, // always bottom
+        (Some(_), None) => Ordering::Less,    // always bottom
+        (Some(qa), Some(qb)) => {
+            let ord = match col {
+                0 => qa.symbol.cmp(&qb.symbol),
+                1 => qa.short_name.cmp(&qb.short_name),
+                2 => cmp_f64(qa.price, qb.price),
+                3 => cmp_f64(qa.change, qb.change),
+                4 => cmp_f64(qa.change_percent, qb.change_percent),
+                5 => cmp_f64(qa.open, qb.open),
+                6 => cmp_f64(qa.high, qb.high),
+                7 => cmp_f64(qa.low, qb.low),
+                8 => qa.volume.cmp(&qb.volume),
+                9 => cmp_f64(qa.price * qa.volume as f64, qb.price * qb.volume as f64),
+                _ => Ordering::Equal,
+            };
+            match direction {
+                SortDirection::Ascending => ord,
+                SortDirection::Descending => ord.reverse(),
+            }
+        }
+    }
+}
+
+/// Compare two portfolio rows by column index.
+/// Uses quotes map for current-price-dependent fields.
+fn compare_portfolio_column(
+    col: usize,
+    a: &crate::config::Holding,
+    b: &crate::config::Holding,
+    quotes: &HashMap<String, StockQuote>,
+) -> Ordering {
+    let price_a = quotes.get(&a.symbol).map(|q| q.price).unwrap_or(0.0);
+    let price_b = quotes.get(&b.symbol).map(|q| q.price).unwrap_or(0.0);
+
+    match col {
+        0 => a.symbol.cmp(&b.symbol),
+        1 => a.lots.cmp(&b.lots),
+        2 => a.shares().cmp(&b.shares()),
+        3 => cmp_f64(a.avg_price, b.avg_price),
+        4 => cmp_f64(price_a, price_b),
+        5 => cmp_f64(a.pl_metrics(price_a).0, b.pl_metrics(price_b).0), // value
+        6 => cmp_f64(a.cost_basis(), b.cost_basis()),
+        7 => cmp_f64(a.pl_metrics(price_a).2, b.pl_metrics(price_b).2), // P/L
+        8 => cmp_f64(a.pl_metrics(price_a).3, b.pl_metrics(price_b).3), // P/L%
+        _ => Ordering::Equal,
     }
 }

@@ -146,6 +146,13 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 ViewMode::Portfolio => app.show_portfolio_detail().await,
                             }
                         }
+                        KeyCode::Char('s') => app.cycle_sort_column(),
+                        KeyCode::Char('S') => app.toggle_sort_direction(),
+                        KeyCode::Char('c') => {
+                            if app.view_mode == ViewMode::Portfolio {
+                                app.show_portfolio_chart();
+                            }
+                        }
                         _ => {}
                     },
                     InputMode::StockDetail => match key.code {
@@ -168,6 +175,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             }
                         }
                         KeyCode::Enter => app.confirm_export()?,
+                        _ => {}
+                    },
+                    InputMode::PortfolioChart => match key.code {
+                        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('c') => app.close_portfolio_chart(),
                         _ => {}
                     },
                     // All text-input modes share common Backspace/Esc handling
