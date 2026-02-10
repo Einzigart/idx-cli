@@ -31,13 +31,24 @@ cargo fmt                # Format code
 
 ```
 src/
-├── main.rs      # Entry point, terminal setup, event loop, keybindings
-├── app.rs       # Application state (App struct), business logic, mode management
-├── ui.rs        # All rendering: watchlist table, portfolio table, stock detail popup
-├── config.rs    # Persistent config: watchlists, holdings, JSON file storage
+├── main.rs          # Entry point, terminal setup, event loop, keybindings
+├── app/
+│   ├── mod.rs       # App struct, enums, navigation, sort, core helpers
+│   ├── watchlist.rs # Watchlist CRUD: add/remove stocks, watchlist management
+│   ├── portfolio.rs # Portfolio CRUD: add wizard, remove, detail, chart allocation
+│   ├── export.rs    # Export menu logic, CSV/JSON formatters
+│   ├── filter.rs    # Search/filter, get_filtered_watchlist/portfolio, selected_*_symbol
+│   └── sort.rs      # Column comparison functions for watchlist and portfolio sorting
+├── ui/
+│   ├── mod.rs       # draw() entry point, draw_header(), draw_footer()
+│   ├── tables.rs    # Column defs, visible_columns(), draw_watchlist(), draw_portfolio()
+│   ├── modals.rs    # draw_help(), draw_export_menu(), draw_portfolio_chart()
+│   ├── detail.rs    # draw_stock_detail() with section helpers (price, range, fundamentals, risk)
+│   └── formatters.rs # format_price, format_change, format_compact, format_pl, etc.
+├── config.rs        # Persistent config: watchlists, holdings, JSON file storage
 └── api/
-    ├── mod.rs   # Re-exports
-    └── yahoo.rs # Yahoo Finance API client with crumb authentication
+    ├── mod.rs       # Re-exports
+    └── yahoo.rs     # Yahoo Finance API client with crumb authentication
 ```
 
 ### Key Patterns
@@ -55,6 +66,8 @@ src/
 **Responsive Columns**: `ColumnDef` structs with priority tiers (1=always visible, 4=only on wide terminals). `visible_columns()` greedily includes columns from highest to lowest priority until available width is exhausted. Stretch columns (Name for watchlist, Value for portfolio) absorb extra space via `Constraint::Min()`.
 
 **Column Sorting**: `SortDirection` enum with `cycle_sort_column()` / `toggle_sort_direction()`. Sort applied in `get_filtered_watchlist()` / `get_filtered_portfolio()` after search filtering. Free functions `compare_watchlist_column()` / `compare_portfolio_column()` handle per-column type-aware comparison. Export functions use `get_sorted_watchlist()` (insertion order, not sorted).
+
+**Selection via Filtered View**: `selected_index` / `portfolio_selected` are indices into the **filtered/sorted** list, not the raw config list. All operations (delete, detail view, navigation bounds) must resolve through `selected_watchlist_symbol()` / `selected_portfolio_symbol()` which index the filtered list returned by `get_filtered_watchlist()` / `get_filtered_portfolio()`.
 
 ## Keybindings (Normal Mode)
 
