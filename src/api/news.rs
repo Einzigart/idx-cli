@@ -42,11 +42,6 @@ impl NewsClient {
                     .as_ref()
                     .map(|t| t.content.clone())
                     .unwrap_or_else(|| "Unknown".to_string());
-                let link = entry
-                    .links
-                    .first()
-                    .map(|l| l.href.clone())
-                    .unwrap_or_default();
                 let published_at = entry
                     .published
                     .or(entry.updated)
@@ -56,7 +51,6 @@ impl NewsClient {
                 NewsItem {
                     title,
                     publisher,
-                    link,
                     published_at,
                 }
             })

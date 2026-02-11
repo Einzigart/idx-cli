@@ -76,8 +76,6 @@ struct ChartQuote {
 pub struct NewsItem {
     pub title: String,
     pub publisher: String,
-    #[allow(dead_code)]
-    pub link: String,
     pub published_at: i64, // Unix timestamp
 }
 
@@ -91,7 +89,6 @@ struct SearchResponse {
 struct SearchNewsItem {
     title: Option<String>,
     publisher: Option<String>,
-    link: Option<String>,
     #[serde(rename = "providerPublishTime", default)]
     provider_publish_time: Option<i64>,
 }
@@ -419,7 +416,6 @@ impl YahooClient {
                 Some(NewsItem {
                     title: n.title?,
                     publisher: n.publisher.unwrap_or_else(|| "Unknown".to_string()),
-                    link: n.link.unwrap_or_default(),
                     published_at: n.provider_publish_time.unwrap_or(0),
                 })
             })
