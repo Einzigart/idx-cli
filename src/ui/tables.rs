@@ -25,6 +25,7 @@ const WATCHLIST_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "Low",      width: 10, priority: 4 },
     ColumnDef { name: "Volume",   width: 12, priority: 2 },
     ColumnDef { name: "Value",    width: 14, priority: 3 },
+    ColumnDef { name: "News",     width: 5,  priority: 4 },
 ];
 
 const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
@@ -37,6 +38,7 @@ const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "Cost",       width: 12, priority: 3 },
     ColumnDef { name: "P/L",        width: 12, priority: 2 },
     ColumnDef { name: "P/L %",      width: 10, priority: 1 },
+    ColumnDef { name: "News",       width: 5,  priority: 4 },
 ];
 
 pub(super) fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Vec<usize> {
@@ -74,6 +76,7 @@ fn watchlist_cell(
     text_style: Style,
     chg_style: Style,
     is_selected: bool,
+    has_news: bool,
 ) -> Cell<'static> {
     match col_idx {
         0 => Cell::from(q.symbol.clone()).style(bold_text),
@@ -90,6 +93,11 @@ fn watchlist_cell(
             let style = if is_selected { text_style.fg(Color::Cyan) } else { Style::default() };
             Cell::from(format_value(value)).style(style)
         }
+        10 => if has_news {
+            Cell::from(" * ").style(Style::default().fg(Color::Yellow))
+        } else {
+            Cell::from("")
+        },
         _ => Cell::from(""),
     }
 }
@@ -100,6 +108,7 @@ fn watchlist_row(
     quote: Option<&StockQuote>,
     vis: &[usize],
     selected_index: usize,
+    has_news: bool,
 ) -> Row<'static> {
     let is_selected = i == selected_index;
     if let Some(q) = quote {
@@ -113,7 +122,7 @@ fn watchlist_row(
         let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
         let chg_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
         let cells: Vec<Cell> = vis.iter()
-            .map(|&col| watchlist_cell(col, q, bold_text, text_style, chg_style, is_selected))
+            .map(|&col| watchlist_cell(col, q, bold_text, text_style, chg_style, is_selected, has_news))
             .collect();
         let row_style = if is_selected { Style::default().bg(Color::Rgb(40, 80, 120)) } else { Style::default() };
         Row::new(cells).style(row_style)
@@ -124,7 +133,15 @@ fn watchlist_row(
             Style::default()
         };
         let cells: Vec<Cell> = vis.iter()
-            .map(|&col| if col == 0 { Cell::from(symbol.to_string()) } else { Cell::from("-") })
+            .map(|&col| match col {
+                0 => Cell::from(symbol.to_string()),
+                10 => if has_news {
+                    Cell::from(" * ").style(Style::default().fg(Color::Yellow))
+                } else {
+                    Cell::from("")
+                },
+                _ => Cell::from("-"),
+            })
             .collect();
         Row::new(cells).style(style)
     }
@@ -179,7 +196,10 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
 
     let watchlist = app.get_filtered_watchlist();
     let rows: Vec<Row> = watchlist.iter().enumerate()
-        .map(|(i, (symbol, quote))| watchlist_row(i, symbol, *quote, &vis, app.selected_index))
+        .map(|(i, (symbol, quote))| {
+            let has_news = app.has_recent_news(symbol);
+            watchlist_row(i, symbol, *quote, &vis, app.selected_index, has_news)
+        })
         .collect();
 
     let constraints = column_constraints(WATCHLIST_COLUMNS, &vis, 1, available_width);
@@ -197,6 +217,7 @@ fn portfolio_cell(
     holding: &crate::config::Holding,
     metrics: (f64, f64, f64, f64, f64),
     styles: (Style, Style, Style),
+    has_news: bool,
 ) -> Cell<'static> {
     let (curr_price, value, cost, pl, pl_percent) = metrics;
     let (bold_text, text_style, pl_style) = styles;
@@ -210,6 +231,11 @@ fn portfolio_cell(
         6 => Cell::from(format_value(cost)).style(text_style),
         7 => Cell::from(format_pl(pl)).style(pl_style),
         8 => Cell::from(format!("{:+.2}%", pl_percent)).style(pl_style),
+        9 => if has_news {
+            Cell::from(" * ").style(Style::default().fg(Color::Yellow))
+        } else {
+            Cell::from("")
+        },
         _ => Cell::from(""),
     }
 }
@@ -219,6 +245,7 @@ fn portfolio_row(
     holding: &crate::config::Holding,
     app: &App,
     vis: &[usize],
+    has_news: bool,
 ) -> (Row<'static>, f64, f64) {
     let is_selected = i == app.portfolio_selected;
     let curr_price = app.quotes.get(&holding.symbol).map(|q| q.price).unwrap_or(0.0);
@@ -232,7 +259,7 @@ fn portfolio_row(
     let pl_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
 
     let cells: Vec<Cell> = vis.iter()
-        .map(|&col| portfolio_cell(col, holding, (curr_price, value, cost, pl, pl_percent), (bold_text, text_style, pl_style)))
+        .map(|&col| portfolio_cell(col, holding, (curr_price, value, cost, pl, pl_percent), (bold_text, text_style, pl_style), has_news))
         .collect();
     let row_style = if is_selected { Style::default().bg(Color::Rgb(80, 40, 80)) } else { Style::default() };
     (Row::new(cells).style(row_style), value, cost)
@@ -251,7 +278,8 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
     let filtered = app.get_filtered_portfolio();
     let rows: Vec<Row> = filtered.iter().enumerate()
         .map(|(i, (_orig_idx, holding))| {
-            let (row, value, cost) = portfolio_row(i, holding, app, &vis);
+            let has_news = app.has_recent_news(&holding.symbol);
+            let (row, value, cost) = portfolio_row(i, holding, app, &vis, has_news);
             total_value += value;
             total_cost += cost;
             row
