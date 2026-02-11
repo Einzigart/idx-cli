@@ -4,7 +4,7 @@ mod portfolio;
 mod sort;
 mod watchlist;
 
-use crate::api::{ChartData, StockQuote, YahooClient};
+use crate::api::{ChartData, NewsItem, StockQuote, YahooClient};
 use crate::config::Config;
 use anyhow::Result;
 use chrono::Local;
@@ -79,7 +79,9 @@ pub struct App {
     pub last_updated: Option<String>,
     pub detail_symbol: Option<String>,
     pub detail_chart: Option<ChartData>,
+    pub detail_news: Option<Vec<NewsItem>>,
     pub chart_loading: bool,
+    pub news_loading: bool,
     pub view_mode: ViewMode,
     pub portfolio_selected: usize,
     pub search_query: String,
@@ -110,7 +112,9 @@ impl App {
             last_updated: None,
             detail_symbol: None,
             detail_chart: None,
+            detail_news: None,
             chart_loading: false,
+            news_loading: false,
             view_mode: ViewMode::Watchlist,
             portfolio_selected: 0,
             search_query: String::new(),
@@ -223,6 +227,7 @@ impl App {
     pub fn close_stock_detail(&mut self) {
         self.detail_symbol = None;
         self.detail_chart = None;
+        self.detail_news = None;
         self.input_mode = InputMode::Normal;
     }
 
@@ -233,12 +238,18 @@ impl App {
     async fn open_detail(&mut self, symbol: &str) {
         self.detail_symbol = Some(symbol.to_string());
         self.detail_chart = None;
+        self.detail_news = None;
         self.chart_loading = true;
+        self.news_loading = true;
         self.input_mode = InputMode::StockDetail;
         if let Ok(chart) = self.client.get_chart(symbol).await {
             self.detail_chart = Some(chart);
         }
         self.chart_loading = false;
+        if let Ok(news) = self.client.get_news(symbol).await {
+            self.detail_news = Some(news);
+        }
+        self.news_loading = false;
     }
 
     pub fn show_help(&mut self) {

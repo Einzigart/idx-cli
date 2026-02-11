@@ -1,4 +1,4 @@
-use crate::api::StockQuote;
+use crate::api::{NewsItem, StockQuote};
 use crate::app::App;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -173,13 +173,63 @@ fn detail_risk_section(q: &StockQuote) -> Vec<Line<'static>> {
             Span::raw("Value:          "),
             Span::styled(format_value(value), Style::default().fg(Color::Cyan)),
         ]),
-        Line::from(""),
-        Line::from(Span::styled("[Enter/Esc] Close", Style::default().fg(Color::DarkGray))),
     ]
 }
 
+fn format_relative_time(unix_ts: i64) -> String {
+    if unix_ts <= 0 {
+        return String::new();
+    }
+    let elapsed_secs = chrono::Utc::now().timestamp() - unix_ts;
+    if elapsed_secs < 0 {
+        return "just now".to_string();
+    }
+    let mins = elapsed_secs / 60;
+    let hours = mins / 60;
+    let days = hours / 24;
+    match () {
+        _ if days > 0 => format!("{}d ago", days),
+        _ if hours > 0 => format!("{}h ago", hours),
+        _ if mins > 0 => format!("{}m ago", mins),
+        _ => "just now".to_string(),
+    }
+}
+
+fn detail_news_section(news: Option<&[NewsItem]>, loading: bool) -> Vec<Line<'static>> {
+    let mut lines = vec![Line::from(""), section_divider("News")];
+
+    if loading {
+        lines.push(Line::from(Span::styled("Loading news...", Style::default().fg(Color::DarkGray))));
+        return lines;
+    }
+
+    let items = match news {
+        Some(items) if !items.is_empty() => items,
+        _ => {
+            lines.push(Line::from(Span::styled("No news available", Style::default().fg(Color::DarkGray))));
+            return lines;
+        }
+    };
+
+    for item in items.iter().take(3) {
+        lines.push(Line::from(Span::raw(item.title.clone())));
+        let time = format_relative_time(item.published_at);
+        let meta = if time.is_empty() {
+            item.publisher.clone()
+        } else {
+            format!("{} - {}", item.publisher, time)
+        };
+        lines.push(Line::from(Span::styled(
+            meta,
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+
+    lines
+}
+
 pub fn draw_stock_detail(frame: &mut Frame, app: &App) {
-    let area = centered_rect(55, 80, frame.area());
+    let area = centered_rect(55, 85, frame.area());
     frame.render_widget(Clear, area);
 
     let quote = match app.get_detail_quote() {
@@ -207,6 +257,12 @@ pub fn draw_stock_detail(frame: &mut Frame, app: &App) {
     content.extend(detail_range_section(quote));
     content.extend(detail_fundamentals_section(quote));
     content.extend(detail_risk_section(quote));
+    content.extend(detail_news_section(
+        app.detail_news.as_deref(),
+        app.news_loading,
+    ));
+    content.push(Line::from(""));
+    content.push(Line::from(Span::styled("[Enter/Esc] Close", Style::default().fg(Color::DarkGray))));
 
     frame.render_widget(Paragraph::new(content).alignment(Alignment::Left), chunks[0]);
     draw_sparkline(frame, chunks[1], app);
