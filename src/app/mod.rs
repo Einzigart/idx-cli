@@ -1,14 +1,16 @@
 mod export;
 mod filter;
+mod news;
 mod portfolio;
 mod sort;
 mod watchlist;
 
-use crate::api::{ChartData, NewsItem, StockQuote, YahooClient};
+use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
 use crate::config::Config;
 use anyhow::Result;
 use chrono::Local;
 use std::collections::HashMap;
+use tokio::time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
@@ -30,6 +32,7 @@ pub enum InputMode {
 pub enum ViewMode {
     Watchlist,
     Portfolio,
+    News,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -95,6 +98,13 @@ pub struct App {
     pub watchlist_sort_direction: SortDirection,
     pub portfolio_sort_column: Option<usize>,
     pub portfolio_sort_direction: SortDirection,
+    pub news_items: Vec<NewsItem>,
+    pub news_selected: usize,
+    pub news_last_refresh: Option<Instant>,
+    pub rss_loading: bool,
+    pub news_sort_column: Option<usize>,
+    pub news_sort_direction: SortDirection,
+    news_client: NewsClient,
     client: YahooClient,
 }
 
@@ -128,6 +138,13 @@ impl App {
             watchlist_sort_direction: SortDirection::Ascending,
             portfolio_sort_column: None,
             portfolio_sort_direction: SortDirection::Ascending,
+            news_items: Vec::new(),
+            news_selected: 0,
+            news_last_refresh: None,
+            rss_loading: false,
+            news_sort_column: None,
+            news_sort_direction: SortDirection::Ascending,
+            news_client: NewsClient::new(),
             client: YahooClient::new(),
         })
     }
@@ -137,6 +154,10 @@ impl App {
         let symbols: Vec<String> = match self.view_mode {
             ViewMode::Watchlist => self.config.current_watchlist().symbols.clone(),
             ViewMode::Portfolio => self.config.portfolio_symbols(),
+            ViewMode::News => {
+                self.loading = false;
+                return Ok(());
+            }
         };
         match self.client.get_quotes(&symbols).await {
             Ok(quotes) => {
@@ -164,6 +185,11 @@ impl App {
                     self.portfolio_selected -= 1;
                 }
             }
+            ViewMode::News => {
+                if self.news_selected > 0 {
+                    self.news_selected -= 1;
+                }
+            }
         }
     }
 
@@ -181,6 +207,12 @@ impl App {
                     self.portfolio_selected += 1;
                 }
             }
+            ViewMode::News => {
+                let len = self.get_filtered_news().len();
+                if len > 0 && self.news_selected < len - 1 {
+                    self.news_selected += 1;
+                }
+            }
         }
     }
 
@@ -188,10 +220,12 @@ impl App {
         let num_columns = match self.view_mode {
             ViewMode::Watchlist => 10,
             ViewMode::Portfolio => 9,
+            ViewMode::News => 3,
         };
         let (col, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_column, &mut self.selected_index),
             ViewMode::Portfolio => (&mut self.portfolio_sort_column, &mut self.portfolio_selected),
+            ViewMode::News => (&mut self.news_sort_column, &mut self.news_selected),
         };
         *col = match *col {
             None => Some(0),
@@ -205,6 +239,7 @@ impl App {
         let (dir, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_direction, &mut self.selected_index),
             ViewMode::Portfolio => (&mut self.portfolio_sort_direction, &mut self.portfolio_selected),
+            ViewMode::News => (&mut self.news_sort_direction, &mut self.news_selected),
         };
         dir.toggle();
         *selected = 0;
@@ -218,9 +253,12 @@ impl App {
     pub fn toggle_view(&mut self) {
         self.view_mode = match self.view_mode {
             ViewMode::Watchlist => ViewMode::Portfolio,
-            ViewMode::Portfolio => ViewMode::Watchlist,
+            ViewMode::Portfolio => ViewMode::News,
+            ViewMode::News => ViewMode::Watchlist,
         };
-        self.quotes.clear();
+        if self.view_mode != ViewMode::News {
+            self.quotes.clear();
+        }
         self.clear_filter();
     }
 

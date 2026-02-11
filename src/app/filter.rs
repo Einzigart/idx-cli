@@ -1,6 +1,6 @@
-use crate::api::StockQuote;
+use crate::api::{NewsItem, StockQuote};
 use super::{App, InputMode, SortDirection};
-use super::sort::{compare_watchlist_column, compare_portfolio_column};
+use super::sort::{compare_watchlist_column, compare_portfolio_column, compare_news_column};
 
 impl App {
     pub fn start_search(&mut self) {
@@ -14,6 +14,7 @@ impl App {
             self.search_active = true;
             self.selected_index = 0;
             self.portfolio_selected = 0;
+            self.news_selected = 0;
         } else {
             self.clear_filter();
         }
@@ -32,6 +33,7 @@ impl App {
         self.search_active = false;
         self.selected_index = 0;
         self.portfolio_selected = 0;
+        self.news_selected = 0;
     }
 
     pub fn get_sorted_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
@@ -83,5 +85,26 @@ impl App {
     pub fn selected_portfolio_symbol(&self) -> Option<String> {
         let filtered = self.get_filtered_portfolio();
         filtered.get(self.portfolio_selected).map(|(_, h)| h.symbol.clone())
+    }
+
+    pub fn get_filtered_news(&self) -> Vec<&NewsItem> {
+        let mut items: Vec<&NewsItem> = self.news_items.iter().collect();
+        if self.search_active {
+            items.retain(|item| {
+                item.title.to_uppercase().contains(&self.search_query)
+                    || item.publisher.to_uppercase().contains(&self.search_query)
+            });
+        }
+        if let Some(col) = self.news_sort_column {
+            let dir = self.news_sort_direction;
+            items.sort_by(|a, b| {
+                let ord = compare_news_column(col, a, b);
+                match dir {
+                    SortDirection::Ascending => ord,
+                    SortDirection::Descending => ord.reverse(),
+                }
+            });
+        }
+        items
     }
 }

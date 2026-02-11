@@ -1,6 +1,7 @@
 mod detail;
 mod formatters;
 mod modals;
+mod news;
 mod tables;
 
 use crate::app::{App, InputMode, ViewMode};
@@ -27,6 +28,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     match app.view_mode {
         ViewMode::Watchlist => tables::draw_watchlist(frame, chunks[1], app),
         ViewMode::Portfolio => tables::draw_portfolio(frame, chunks[1], app),
+        ViewMode::News => news::draw_news(frame, chunks[1], app),
     }
 
     draw_footer(frame, chunks[2], app);
@@ -56,6 +58,7 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let (view_indicator, view_color) = match app.view_mode {
         ViewMode::Watchlist => (app.watchlist_indicator(), Color::Yellow),
         ViewMode::Portfolio => ("Portfolio".to_string(), Color::Magenta),
+        ViewMode::News => ("News".to_string(), Color::Blue),
     };
 
     let filter_span = if app.search_active {
@@ -85,7 +88,8 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         InputMode::Normal => {
             let help = match app.view_mode {
                 ViewMode::Watchlist => " [a] Add [d] Del [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help ",
-                ViewMode::Portfolio => " [a] Add [d] Del [r] Refresh [s] Sort [c] Chart [p] Watchlist [Enter] Detail [↑↓] Nav [?] Help ",
+                ViewMode::Portfolio => " [a] Add [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help ",
+                ViewMode::News => " [r] Refresh [s] Sort [/] Search [p] Watchlist [↑↓] Nav [?] Help ",
             };
             if let Some(msg) = &app.status_message {
                 Line::from(vec![

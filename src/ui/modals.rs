@@ -157,7 +157,7 @@ fn help_content() -> Vec<Line<'static>> {
     vec![
         help_section("General"),
         help_binding("q", "Quit"),
-        help_binding("p", "Toggle Watchlist / Portfolio"),
+        help_binding("p", "Cycle Watchlist / Portfolio / News"),
         help_binding("r", "Refresh quotes"),
         help_binding("?", "Show this help"),
         help_binding("Enter", "Stock detail popup"),
@@ -177,6 +177,9 @@ fn help_content() -> Vec<Line<'static>> {
         help_binding("a", "Add holding"),
         help_binding("d", "Delete selected holding"),
         help_binding("c", "Portfolio allocation chart"),
+        Line::from(""),
+        help_section("News"),
+        help_binding("r", "Refresh news feeds"),
         Line::from(""),
         help_section("Other"),
         help_binding("s", "Cycle sort column"),

@@ -71,11 +71,12 @@ struct ChartQuote {
     close: Option<Vec<Option<f64>>>,
 }
 
-/// A news article from Yahoo Finance search results
+/// A news article from Yahoo Finance search results or RSS feeds
 #[derive(Debug, Clone)]
 pub struct NewsItem {
     pub title: String,
     pub publisher: String,
+    #[allow(dead_code)]
     pub link: String,
     pub published_at: i64, // Unix timestamp
 }

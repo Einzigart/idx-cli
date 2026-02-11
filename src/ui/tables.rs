@@ -8,10 +8,10 @@ use ratatui::{
 };
 use super::formatters::*;
 
-struct ColumnDef {
-    name: &'static str,
-    width: u16,
-    priority: u8,
+pub(super) struct ColumnDef {
+    pub name: &'static str,
+    pub width: u16,
+    pub priority: u8,
 }
 
 const WATCHLIST_COLUMNS: &[ColumnDef] = &[
@@ -39,7 +39,7 @@ const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "P/L %",      width: 10, priority: 1 },
 ];
 
-fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Vec<usize> {
+pub(super) fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Vec<usize> {
     let max_priority = columns.iter().map(|c| c.priority).max().unwrap_or(1);
     let mut visible: Vec<usize> = Vec::new();
     for priority_cutoff in 1..=max_priority {
@@ -130,7 +130,7 @@ fn watchlist_row(
     }
 }
 
-fn sort_header_row(
+pub(super) fn sort_header_row(
     columns: &[ColumnDef],
     vis: &[usize],
     sort_col: Option<usize>,
@@ -151,7 +151,7 @@ fn sort_header_row(
     Row::new(cells).height(1)
 }
 
-fn column_constraints(
+pub(super) fn column_constraints(
     columns: &[ColumnDef],
     vis: &[usize],
     stretch_col: usize,

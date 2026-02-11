@@ -61,3 +61,22 @@ pub fn truncate_str(s: &str, max_len: usize) -> String {
         s.to_string()
     }
 }
+
+pub fn format_relative_time(unix_ts: i64) -> String {
+    if unix_ts <= 0 {
+        return String::new();
+    }
+    let elapsed_secs = chrono::Utc::now().timestamp() - unix_ts;
+    if elapsed_secs < 0 {
+        return "just now".to_string();
+    }
+    let mins = elapsed_secs / 60;
+    let hours = mins / 60;
+    let days = hours / 24;
+    match () {
+        _ if days > 0 => format!("{}d ago", days),
+        _ if hours > 0 => format!("{}h ago", hours),
+        _ if mins > 0 => format!("{}m ago", mins),
+        _ => "just now".to_string(),
+    }
+}

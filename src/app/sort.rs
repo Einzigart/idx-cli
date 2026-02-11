@@ -1,4 +1,4 @@
-use crate::api::StockQuote;
+use crate::api::{NewsItem, StockQuote};
 use crate::config::Holding;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -58,6 +58,15 @@ pub fn compare_portfolio_column(
         6 => cmp_f64(a.cost_basis(), b.cost_basis()),
         7 => cmp_f64(a.pl_metrics(price_a).2, b.pl_metrics(price_b).2),
         8 => cmp_f64(a.pl_metrics(price_a).3, b.pl_metrics(price_b).3),
+        _ => Ordering::Equal,
+    }
+}
+
+pub fn compare_news_column(col: usize, a: &NewsItem, b: &NewsItem) -> Ordering {
+    match col {
+        0 => a.published_at.cmp(&b.published_at),
+        1 => a.publisher.cmp(&b.publisher),
+        2 => a.title.cmp(&b.title),
         _ => Ordering::Equal,
     }
 }

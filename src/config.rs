@@ -60,10 +60,19 @@ pub struct Config {
     pub refresh_interval_secs: u64,
     #[serde(default)]
     pub portfolio: Vec<Holding>,
+    #[serde(default = "default_news_sources")]
+    pub news_sources: Vec<String>,
 }
 
 fn default_refresh_interval() -> u64 {
     1
+}
+
+fn default_news_sources() -> Vec<String> {
+    vec![
+        "https://www.cnbcindonesia.com/market/rss".to_string(),
+        "https://www.kontan.co.id/rss/investasi".to_string(),
+    ]
 }
 
 impl Default for Config {
@@ -100,6 +109,7 @@ impl Default for Config {
             active_watchlist: 0,
             refresh_interval_secs: default_refresh_interval(),
             portfolio: Vec::new(),
+            news_sources: default_news_sources(),
         }
     }
 }
