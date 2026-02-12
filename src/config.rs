@@ -233,6 +233,13 @@ impl Config {
         self.portfolio.retain(|h| h.symbol != symbol);
     }
 
+    pub fn update_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) {
+        if let Some(holding) = self.portfolio.iter_mut().find(|h| h.symbol == symbol) {
+            holding.lots = lots;
+            holding.avg_price = avg_price;
+        }
+    }
+
     pub fn portfolio_symbols(&self) -> Vec<String> {
         self.portfolio.iter().map(|h| h.symbol.clone()).collect()
     }

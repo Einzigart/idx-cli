@@ -29,16 +29,16 @@ const WATCHLIST_COLUMNS: &[ColumnDef] = &[
 ];
 
 const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
-    ColumnDef { name: "Symbol",     width: 8,  priority: 1 },
-    ColumnDef { name: "Lots",       width: 6,  priority: 2 },
-    ColumnDef { name: "Shares",     width: 8,  priority: 3 },
-    ColumnDef { name: "Avg Price",  width: 10, priority: 3 },
-    ColumnDef { name: "Curr Price", width: 10, priority: 1 },
-    ColumnDef { name: "Value",      width: 12, priority: 2 },
-    ColumnDef { name: "Cost",       width: 12, priority: 3 },
-    ColumnDef { name: "P/L",        width: 12, priority: 2 },
-    ColumnDef { name: "P/L %",      width: 10, priority: 1 },
-    ColumnDef { name: "News",       width: 5,  priority: 4 },
+    ColumnDef { name: "Symbol",    width: 8,  priority: 1 },
+    ColumnDef { name: "Name",      width: 22, priority: 3 },
+    ColumnDef { name: "Lots",      width: 6,  priority: 2 },
+    ColumnDef { name: "Avg Price", width: 10, priority: 3 },
+    ColumnDef { name: "Last",      width: 10, priority: 1 },
+    ColumnDef { name: "Value",     width: 12, priority: 2 },
+    ColumnDef { name: "Cost",      width: 12, priority: 3 },
+    ColumnDef { name: "P/L",       width: 12, priority: 2 },
+    ColumnDef { name: "P/L %",     width: 10, priority: 1 },
+    ColumnDef { name: "News",      width: 5,  priority: 4 },
 ];
 
 pub(super) fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Vec<usize> {
@@ -171,19 +171,36 @@ pub(super) fn sort_header_row(
 pub(super) fn column_constraints(
     columns: &[ColumnDef],
     vis: &[usize],
-    stretch_col: usize,
+    stretch_col: Option<usize>,
     available_width: u16,
 ) -> Vec<Constraint> {
     let total_vis_width: u16 = vis.iter().map(|&i| columns[i].width).sum();
-    vis.iter()
-        .map(|&i| {
-            if i == stretch_col && available_width > total_vis_width {
-                Constraint::Min(columns[i].width)
-            } else {
-                Constraint::Length(columns[i].width)
+    let extra = available_width.saturating_sub(total_vis_width);
+
+    match stretch_col {
+        // Single stretch column absorbs all extra space (e.g. Name in watchlist)
+        Some(sc) if extra > 0 => vis
+            .iter()
+            .map(|&i| {
+                if i == sc {
+                    Constraint::Min(columns[i].width)
+                } else {
+                    Constraint::Length(columns[i].width)
+                }
+            })
+            .collect(),
+        // No stretch column: fixed widths, trailing spacer absorbs the rest
+        _ => {
+            let mut constraints: Vec<Constraint> = vis
+                .iter()
+                .map(|&i| Constraint::Length(columns[i].width))
+                .collect();
+            if extra > 0 {
+                constraints.push(Constraint::Min(0));
             }
-        })
-        .collect()
+            constraints
+        }
+    }
 }
 
 pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
@@ -202,7 +219,7 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
-    let constraints = column_constraints(WATCHLIST_COLUMNS, &vis, 1, available_width);
+    let constraints = column_constraints(WATCHLIST_COLUMNS, &vis, Some(1), available_width);
     let table = Table::new(rows, constraints)
         .header(header)
         .block(Block::default().borders(Borders::ALL).title(" Watchlist "));
@@ -215,6 +232,7 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
 fn portfolio_cell(
     col_idx: usize,
     holding: &crate::config::Holding,
+    short_name: &str,
     metrics: (f64, f64, f64, f64, f64),
     styles: (Style, Style, Style),
     has_news: bool,
@@ -223,8 +241,8 @@ fn portfolio_cell(
     let (bold_text, text_style, pl_style) = styles;
     match col_idx {
         0 => Cell::from(holding.symbol.clone()).style(bold_text),
-        1 => Cell::from(format!("{}", holding.lots)).style(text_style),
-        2 => Cell::from(format!("{}", holding.shares())).style(text_style),
+        1 => Cell::from(truncate_str(short_name, 20)).style(text_style),
+        2 => Cell::from(format!("{}", holding.lots)).style(text_style),
         3 => Cell::from(format_price(holding.avg_price)).style(text_style),
         4 => Cell::from(format_price(curr_price)).style(text_style),
         5 => Cell::from(format_value(value)).style(text_style),
@@ -248,7 +266,9 @@ fn portfolio_row(
     has_news: bool,
 ) -> (Row<'static>, f64, f64) {
     let is_selected = i == app.portfolio_selected;
-    let curr_price = app.quotes.get(&holding.symbol).map(|q| q.price).unwrap_or(0.0);
+    let quote = app.quotes.get(&holding.symbol);
+    let curr_price = quote.map(|q| q.price).unwrap_or(0.0);
+    let short_name = quote.map(|q| q.short_name.as_str()).unwrap_or("-");
     let (value, cost, pl, pl_percent) = holding.pl_metrics(curr_price);
 
     let pl_color = if pl >= 0.0 { Color::Green } else { Color::Red };
@@ -259,7 +279,7 @@ fn portfolio_row(
     let pl_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
 
     let cells: Vec<Cell> = vis.iter()
-        .map(|&col| portfolio_cell(col, holding, (curr_price, value, cost, pl, pl_percent), (bold_text, text_style, pl_style), has_news))
+        .map(|&col| portfolio_cell(col, holding, short_name, (curr_price, value, cost, pl, pl_percent), (bold_text, text_style, pl_style), has_news))
         .collect();
     let row_style = if is_selected { Style::default().bg(Color::Rgb(80, 40, 80)) } else { Style::default() };
     (Row::new(cells).style(row_style), value, cost)
@@ -294,7 +314,7 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
         format_value(total_value), format_pl(total_pl), total_pl_pct
     );
 
-    let constraints = column_constraints(PORTFOLIO_COLUMNS, &vis, 5, available_width);
+    let constraints = column_constraints(PORTFOLIO_COLUMNS, &vis, Some(1), available_width);
     let table = Table::new(rows, constraints)
         .header(header)
         .block(

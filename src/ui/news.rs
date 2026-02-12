@@ -70,7 +70,7 @@ pub fn draw_news(frame: &mut Frame, area: Rect, app: &App) {
         format!(" News ({} articles) ", filtered.len())
     };
 
-    let constraints = column_constraints(NEWS_COLUMNS, &vis, 2, available_width);
+    let constraints = column_constraints(NEWS_COLUMNS, &vis, Some(2), available_width);
     let table = Table::new(rows, constraints)
         .header(header)
         .block(Block::default().borders(Borders::ALL).title(title));

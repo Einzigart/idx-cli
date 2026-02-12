@@ -87,8 +87,8 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let content = match app.input_mode {
         InputMode::Normal => {
             let help = match app.view_mode {
-                ViewMode::Watchlist => " [a] Add [d] Del [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help ",
-                ViewMode::Portfolio => " [a] Add [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help ",
+                ViewMode::Watchlist => " [a] Add [d] Del [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help ",
+                ViewMode::Portfolio => " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help ",
                 ViewMode::News => " [r] Refresh [s] Sort [/] Search [p] Watchlist [↑↓] Nav [?] Help ",
             };
             if let Some(msg) = &app.status_message {
@@ -144,6 +144,26 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                 Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
                 Span::styled("█", Style::default().fg(Color::Magenta)),
                 Span::raw(" | [Enter] Add | [Esc] Cancel"),
+            ])
+        }
+        InputMode::PortfolioEditLots => {
+            let symbol = app.pending_edit_symbol.as_deref().unwrap_or("");
+            Line::from(vec![
+                Span::raw(format!(" Edit {} Lots: ", symbol)),
+                Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
+                Span::styled("█", Style::default().fg(Color::Magenta)),
+                Span::raw(" | [Enter] Next | [Esc] Cancel"),
+            ])
+        }
+        InputMode::PortfolioEditPrice => {
+            let symbol = app.pending_edit_symbol.as_deref().unwrap_or("");
+            let lots = app.pending_lots.unwrap_or(0);
+            Line::from(vec![
+                Span::styled(format!(" Edit {} {}lot ", symbol, lots), Style::default().fg(Color::Green)),
+                Span::raw("Avg Price: "),
+                Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
+                Span::styled("█", Style::default().fg(Color::Magenta)),
+                Span::raw(" | [Enter] Save | [Esc] Cancel"),
             ])
         }
         InputMode::StockDetail => Line::from(Span::styled(

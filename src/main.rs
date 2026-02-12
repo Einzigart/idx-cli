@@ -103,8 +103,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Char('?') => app.show_help(),
                     KeyCode::Char('/') => app.start_search(),
                     KeyCode::Char('e') => {
-                        if app.view_mode != ViewMode::News {
-                            app.start_export();
+                        match app.view_mode {
+                            ViewMode::Portfolio => app.start_portfolio_edit(),
+                            ViewMode::Watchlist => app.start_export(),
+                            ViewMode::News => {}
                         }
                     }
                     KeyCode::Char('p') => {
@@ -218,6 +220,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             InputMode::PortfolioAddSymbol
                             | InputMode::PortfolioAddLots
                             | InputMode::PortfolioAddPrice => app.cancel_portfolio_add(),
+                            InputMode::PortfolioEditLots
+                            | InputMode::PortfolioEditPrice => app.cancel_portfolio_edit(),
                             InputMode::Search => app.cancel_search(),
                             _ => app.cancel_input(),
                         }
@@ -242,6 +246,11 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 app.confirm_portfolio_price()?;
                                 needs_refresh = true;
                             }
+                            InputMode::PortfolioEditLots => app.confirm_portfolio_edit_lots(),
+                            InputMode::PortfolioEditPrice => {
+                                app.confirm_portfolio_edit_price()?;
+                                needs_refresh = true;
+                            }
                             InputMode::Search => app.confirm_search(),
                             _ => {}
                         }
@@ -250,8 +259,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Char(c) => {
                         let allowed = match app.input_mode {
                             InputMode::Adding | InputMode::PortfolioAddSymbol => c.is_alphanumeric(),
-                            InputMode::PortfolioAddLots => c.is_ascii_digit(),
-                            InputMode::PortfolioAddPrice => c.is_ascii_digit() || c == '.',
+                            InputMode::PortfolioAddLots | InputMode::PortfolioEditLots => c.is_ascii_digit(),
+                            InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => c.is_ascii_digit() || c == '.',
                             InputMode::WatchlistAdd | InputMode::WatchlistRename => {
                                 c.is_alphanumeric() || c == ' ' || c == '-' || c == '_'
                             }

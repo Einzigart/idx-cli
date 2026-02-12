@@ -48,10 +48,12 @@ pub fn compare_portfolio_column(
 ) -> Ordering {
     let price_a = quotes.get(&a.symbol).map(|q| q.price).unwrap_or(0.0);
     let price_b = quotes.get(&b.symbol).map(|q| q.price).unwrap_or(0.0);
+    let name_a = quotes.get(&a.symbol).map(|q| q.short_name.as_str()).unwrap_or("");
+    let name_b = quotes.get(&b.symbol).map(|q| q.short_name.as_str()).unwrap_or("");
     match col {
         0 => a.symbol.cmp(&b.symbol),
-        1 => a.lots.cmp(&b.lots),
-        2 => a.shares().cmp(&b.shares()),
+        1 => name_a.cmp(name_b),
+        2 => a.lots.cmp(&b.lots),
         3 => cmp_f64(a.avg_price, b.avg_price),
         4 => cmp_f64(price_a, price_b),
         5 => cmp_f64(a.pl_metrics(price_a).0, b.pl_metrics(price_b).0),

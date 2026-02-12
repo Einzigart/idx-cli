@@ -48,6 +48,8 @@ pub enum InputMode {
     Search,
     ExportMenu,
     PortfolioChart,
+    PortfolioEditLots,
+    PortfolioEditPrice,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -116,6 +118,7 @@ pub struct App {
     pub export_menu_selection: usize,
     pub pending_symbol: Option<String>,
     pub pending_lots: Option<u32>,
+    pub pending_edit_symbol: Option<String>,
     pub watchlist_sort_column: Option<usize>,
     pub watchlist_sort_direction: SortDirection,
     pub portfolio_sort_column: Option<usize>,
@@ -156,6 +159,7 @@ impl App {
             export_menu_selection: 0,
             pending_symbol: None,
             pending_lots: None,
+            pending_edit_symbol: None,
             watchlist_sort_column: None,
             watchlist_sort_direction: SortDirection::Ascending,
             portfolio_sort_column: None,

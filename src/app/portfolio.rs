@@ -72,6 +72,73 @@ impl App {
         self.pending_lots = None;
     }
 
+    pub fn start_portfolio_edit(&mut self) {
+        if let Some(symbol) = self.selected_portfolio_symbol()
+            && let Some(holding) = self.config.portfolio.iter().find(|h| h.symbol == symbol)
+        {
+            self.pending_edit_symbol = Some(symbol);
+            self.input_buffer = holding.lots.to_string();
+            self.input_mode = InputMode::PortfolioEditLots;
+        }
+    }
+
+    pub fn confirm_portfolio_edit_lots(&mut self) {
+        if let Ok(lots) = self.input_buffer.trim().parse::<u32>() {
+            if lots > 0 {
+                self.pending_lots = Some(lots);
+                // Pre-fill with current avg_price
+                if let Some(ref symbol) = self.pending_edit_symbol {
+                    if let Some(holding) = self.config.portfolio.iter().find(|h| &h.symbol == symbol) {
+                        self.input_buffer = holding.avg_price.to_string();
+                    } else {
+                        self.input_buffer.clear();
+                    }
+                }
+                self.input_mode = InputMode::PortfolioEditPrice;
+            } else {
+                self.status_message = Some("Lots must be greater than 0".to_string());
+                self.input_buffer.clear();
+            }
+        } else {
+            self.status_message = Some("Invalid number for lots".to_string());
+            self.input_buffer.clear();
+        }
+    }
+
+    pub fn confirm_portfolio_edit_price(&mut self) -> Result<()> {
+        if let Ok(avg_price) = self.input_buffer.trim().parse::<f64>() {
+            if avg_price > 0.0 {
+                match (&self.pending_edit_symbol, self.pending_lots) {
+                    (Some(symbol), Some(lots)) => {
+                        self.config.update_holding(symbol, lots, avg_price);
+                        self.config.save()?;
+                        self.status_message =
+                            Some(format!("Updated {} → {} lots @ {}", symbol, lots, avg_price));
+                    }
+                    _ => {
+                        self.status_message = Some("Missing edit data".to_string());
+                    }
+                }
+            } else {
+                self.status_message = Some("Price must be greater than 0".to_string());
+            }
+        } else {
+            self.status_message = Some("Invalid number for price".to_string());
+        }
+        self.input_mode = InputMode::Normal;
+        self.input_buffer.clear();
+        self.pending_edit_symbol = None;
+        self.pending_lots = None;
+        Ok(())
+    }
+
+    pub fn cancel_portfolio_edit(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.input_buffer.clear();
+        self.pending_edit_symbol = None;
+        self.pending_lots = None;
+    }
+
     pub fn remove_selected_holding(&mut self) -> Result<()> {
         if let Some(symbol) = self.selected_portfolio_symbol() {
             self.config.remove_holding(&symbol);
