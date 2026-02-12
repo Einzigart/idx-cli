@@ -1,14 +1,14 @@
 use chrono::Utc;
 
-use super::App;
+use super::{title_contains_ticker, App};
 
 impl App {
     pub fn has_recent_news(&self, symbol: &str) -> bool {
         let cutoff = Utc::now().timestamp() - 86_400;
         let sym = symbol.to_uppercase();
-        self.news_items.iter().any(|item| {
-            item.published_at >= cutoff && item.title.to_uppercase().contains(&sym)
-        })
+        self.news_items
+            .iter()
+            .any(|item| item.published_at >= cutoff && title_contains_ticker(&item.title, &sym))
     }
 
     pub async fn refresh_news(&mut self) {

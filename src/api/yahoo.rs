@@ -7,7 +7,6 @@ use std::sync::Arc;
 const YAHOO_BASE_URL: &str = "https://finance.yahoo.com";
 const YAHOO_QUOTE_URL: &str = "https://query1.finance.yahoo.com/v7/finance/quote";
 const YAHOO_CHART_URL: &str = "https://query1.finance.yahoo.com/v8/finance/chart";
-const YAHOO_SEARCH_URL: &str = "https://query2.finance.yahoo.com/v1/finance/search";
 
 #[derive(Debug, Clone)]
 pub struct StockQuote {
@@ -71,26 +70,12 @@ struct ChartQuote {
     close: Option<Vec<Option<f64>>>,
 }
 
-/// A news article from Yahoo Finance search results or RSS feeds
+/// A news article from RSS feeds
 #[derive(Debug, Clone)]
 pub struct NewsItem {
     pub title: String,
     pub publisher: String,
     pub published_at: i64, // Unix timestamp
-}
-
-// Search API response structures (for news)
-#[derive(Debug, Deserialize)]
-struct SearchResponse {
-    news: Option<Vec<SearchNewsItem>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct SearchNewsItem {
-    title: Option<String>,
-    publisher: Option<String>,
-    #[serde(rename = "providerPublishTime", default)]
-    provider_publish_time: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -382,46 +367,6 @@ impl YahooClient {
         let low = closes.iter().cloned().fold(f64::INFINITY, f64::min);
 
         Ok(ChartData { closes, high, low })
-    }
-
-    /// Fetch news articles for a stock symbol via Yahoo search API
-    pub async fn get_news(&self, symbol: &str) -> Result<Vec<NewsItem>> {
-        let yahoo_symbol = Self::to_yahoo_symbol(symbol);
-
-        let response = self
-            .client
-            .get(YAHOO_SEARCH_URL)
-            .query(&[
-                ("q", yahoo_symbol.as_str()),
-                ("newsCount", "8"),
-                ("quotesCount", "0"),
-            ])
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            .header("Accept", "application/json")
-            .header("Referer", "https://finance.yahoo.com/")
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("News API error: {}", response.status()));
-        }
-
-        let data: SearchResponse = response.json().await?;
-
-        let items = data
-            .news
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|n| {
-                Some(NewsItem {
-                    title: n.title?,
-                    publisher: n.publisher.unwrap_or_else(|| "Unknown".to_string()),
-                    published_at: n.provider_publish_time.unwrap_or(0),
-                })
-            })
-            .collect();
-
-        Ok(items)
     }
 }
 

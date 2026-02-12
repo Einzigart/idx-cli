@@ -12,6 +12,28 @@ use chrono::Local;
 use std::collections::HashMap;
 use tokio::time::Instant;
 
+/// Check if a headline contains a ticker as a whole word, not as a substring.
+/// e.g. "DEWA" matches "Saham DEWA Naik" and "Darma (DEWA)" but not "Dewan Pengawas".
+pub fn title_contains_ticker(title: &str, ticker: &str) -> bool {
+    let title_upper = title.to_uppercase();
+    let mut start = 0;
+    while let Some(pos) = title_upper[start..].find(ticker) {
+        let abs_pos = start + pos;
+        let end_pos = abs_pos + ticker.len();
+
+        let before_ok = abs_pos == 0
+            || !title_upper.as_bytes()[abs_pos - 1].is_ascii_alphabetic();
+        let after_ok = end_pos >= title_upper.len()
+            || !title_upper.as_bytes()[end_pos].is_ascii_alphabetic();
+
+        if before_ok && after_ok {
+            return true;
+        }
+        start = abs_pos + 1;
+    }
+    false
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
     Normal,
@@ -280,14 +302,31 @@ impl App {
         self.chart_loading = true;
         self.news_loading = true;
         self.input_mode = InputMode::StockDetail;
+
+        // Ensure RSS news is loaded before filtering
+        if self.news_items.is_empty() {
+            self.refresh_news().await;
+        }
+
+        // Filter RSS headlines matching this stock's ticker or company name
+        self.detail_news = Some(self.get_detail_news(symbol));
+        self.news_loading = false;
+
         if let Ok(chart) = self.client.get_chart(symbol).await {
             self.detail_chart = Some(chart);
         }
         self.chart_loading = false;
-        if let Ok(news) = self.client.get_news(symbol).await {
-            self.detail_news = Some(news);
-        }
-        self.news_loading = false;
+    }
+
+    /// Filter RSS news items relevant to a specific stock by ticker match
+    fn get_detail_news(&self, symbol: &str) -> Vec<NewsItem> {
+        let sym_upper = symbol.to_uppercase();
+        self.news_items
+            .iter()
+            .filter(|item| title_contains_ticker(&item.title, &sym_upper))
+            .take(8)
+            .cloned()
+            .collect()
     }
 
     pub fn show_help(&mut self) {

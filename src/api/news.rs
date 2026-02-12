@@ -1,6 +1,36 @@
 use crate::api::yahoo::NewsItem;
 use anyhow::Result;
 use reqwest::Client;
+use std::time::Duration;
+
+/// Extract a short publisher name from the feed URL's domain.
+/// e.g. "https://www.cnbcindonesia.com/market/rss" → "CNBC Indonesia"
+fn publisher_from_url(url: &str) -> String {
+    let host = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(url)
+        .split('/')
+        .next()
+        .unwrap_or(url)
+        .trim_start_matches("www.")
+        .trim_start_matches("rss.")
+        .trim_start_matches("feeds.");
+
+    match host {
+        "cnbcindonesia.com" => "CNBC Indonesia".to_string(),
+        "idxchannel.com" => "IDX Channel".to_string(),
+        "tempo.co" => "Tempo".to_string(),
+        "kontan.co.id" => "Kontan".to_string(),
+        "feedburner.com" => "Feedburner".to_string(),
+        // Fallback: use domain as-is, dropping TLD
+        other => other
+            .split('.')
+            .next()
+            .unwrap_or(other)
+            .to_string(),
+    }
+}
 
 pub struct NewsClient {
     client: Client,
@@ -9,6 +39,7 @@ pub struct NewsClient {
 impl NewsClient {
     pub fn new() -> Self {
         let client = Client::builder()
+            .timeout(Duration::from_secs(15))
             .build()
             .expect("Failed to build RSS client");
         Self { client }
@@ -20,7 +51,7 @@ impl NewsClient {
             .get(url)
             .header(
                 "User-Agent",
-                "Mozilla/5.0 (compatible; idx-cli/0.1)",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             )
             .send()
             .await?
@@ -28,6 +59,8 @@ impl NewsClient {
             .await?;
 
         let feed = feed_rs::parser::parse(&bytes[..])?;
+
+        let publisher = publisher_from_url(url);
 
         let items = feed
             .entries
@@ -37,11 +70,6 @@ impl NewsClient {
                     .title
                     .map(|t| t.content)
                     .unwrap_or_else(|| "(no title)".to_string());
-                let publisher = feed
-                    .title
-                    .as_ref()
-                    .map(|t| t.content.clone())
-                    .unwrap_or_else(|| "Unknown".to_string());
                 let published_at = entry
                     .published
                     .or(entry.updated)
@@ -50,7 +78,7 @@ impl NewsClient {
 
                 NewsItem {
                     title,
-                    publisher,
+                    publisher: publisher.clone(),
                     published_at,
                 }
             })
