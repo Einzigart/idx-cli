@@ -43,10 +43,14 @@ impl App {
             if avg_price > 0.0 {
                 match (&self.pending_symbol, self.pending_lots) {
                     (Some(symbol), Some(lots)) => {
-                        self.config.add_holding(symbol, lots, avg_price);
-                        self.config.save()?;
-                        self.status_message =
-                            Some(format!("Added {} lots of {} @ {}", lots, symbol, avg_price));
+                        if self.config.add_holding(symbol, lots, avg_price) {
+                            self.config.save()?;
+                            self.status_message =
+                                Some(format!("Added {} lots of {} @ {}", lots, symbol, avg_price));
+                        } else {
+                            self.status_message =
+                                Some("Total lots would exceed maximum (4,294,967,295)".to_string());
+                        }
                     }
                     _ => {
                         self.status_message = Some("Missing symbol or lots data".to_string());
