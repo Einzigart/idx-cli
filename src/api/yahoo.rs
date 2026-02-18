@@ -180,6 +180,7 @@ impl YahooClient {
         let client = Client::builder()
             .cookie_store(true)
             .cookie_provider(jar)
+            .timeout(std::time::Duration::from_secs(15))
             .build()
             .expect("Failed to build HTTP client");
 
