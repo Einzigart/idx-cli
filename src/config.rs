@@ -139,6 +139,12 @@ impl Config {
 
         let content = fs::read_to_string(&path)?;
         let mut config: Config = serde_json::from_str(&content)?;
+        if config.watchlists.is_empty() {
+            config.watchlists.push(Watchlist::default());
+        }
+        if config.active_watchlist >= config.watchlists.len() {
+            config.active_watchlist = 0;
+        }
         if config.migrate_news_sources() {
             let _ = config.save();
         }

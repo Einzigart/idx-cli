@@ -55,8 +55,13 @@ pub fn format_market_cap(cap: u64) -> String {
 }
 
 pub fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len - 3])
+    if s.chars().count() > max_len {
+        let end = s
+            .char_indices()
+            .nth(max_len - 3)
+            .map(|(i, _)| i)
+            .unwrap_or(s.len());
+        format!("{}...", &s[..end])
     } else {
         s.to_string()
     }
