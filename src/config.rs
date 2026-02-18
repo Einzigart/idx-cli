@@ -216,12 +216,16 @@ impl Config {
         self.current_watchlist_mut().name = new_name.to_string();
     }
 
-    pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) {
+    /// Add a new holding or merge into an existing one.
+    /// Returns `false` if merging would overflow the lot count.
+    pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) -> bool {
         let symbol = symbol.to_uppercase();
         // Check if holding exists, update it
         if let Some(holding) = self.portfolio.iter_mut().find(|h| h.symbol == symbol) {
-            // Calculate new average price
-            let total_lots = holding.lots + lots;
+            let total_lots = match holding.lots.checked_add(lots) {
+                Some(t) => t,
+                None => return false,
+            };
             let total_cost = holding.cost_basis() + (lots as u64 * 100) as f64 * avg_price;
             holding.avg_price = total_cost / (total_lots as u64 * 100) as f64;
             holding.lots = total_lots;
@@ -232,6 +236,7 @@ impl Config {
                 avg_price,
             });
         }
+        true
     }
 
     pub fn remove_holding(&mut self, symbol: &str) {
@@ -250,6 +255,17 @@ impl Config {
         self.portfolio.iter().map(|h| h.symbol.clone()).collect()
     }
 
+    #[cfg(test)]
+    fn test_config() -> Self {
+        Self {
+            watchlists: vec![Watchlist::default()],
+            active_watchlist: 0,
+            refresh_interval_secs: 1,
+            portfolio: Vec::new(),
+            news_sources: Vec::new(),
+        }
+    }
+
     /// Replace dead RSS feeds with working alternatives. Returns true if changed.
     fn migrate_news_sources(&mut self) -> bool {
         const DEAD_KONTAN: &str = "https://www.kontan.co.id/rss/investasi";
@@ -265,5 +281,45 @@ impl Config {
             }
         }
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_holding_overflow_returns_false() {
+        let mut config = Config::test_config();
+        config.add_holding("BBCA", 3_000_000_000, 8000.0);
+        // Adding 2 billion more would exceed u32::MAX (4,294,967,295)
+        let ok = config.add_holding("BBCA", 2_000_000_000, 9000.0);
+        assert!(!ok, "add_holding should return false on u32 overflow");
+        // Original holding should be unchanged
+        let h = config.portfolio.iter().find(|h| h.symbol == "BBCA").unwrap();
+        assert_eq!(h.lots, 3_000_000_000);
+        assert_eq!(h.avg_price, 8000.0);
+    }
+
+    #[test]
+    fn add_holding_normal_merge() {
+        let mut config = Config::test_config();
+        config.add_holding("BBCA", 100, 8000.0);
+        let ok = config.add_holding("BBCA", 100, 9000.0);
+        assert!(ok);
+        let h = config.portfolio.iter().find(|h| h.symbol == "BBCA").unwrap();
+        assert_eq!(h.lots, 200);
+        // Weighted avg: (100*100*8000 + 100*100*9000) / (200*100) = 8500
+        assert!((h.avg_price - 8500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn add_holding_new_symbol() {
+        let mut config = Config::test_config();
+        let ok = config.add_holding("TLKM", 50, 3500.0);
+        assert!(ok);
+        assert_eq!(config.portfolio.len(), 1);
+        assert_eq!(config.portfolio[0].symbol, "TLKM");
+        assert_eq!(config.portfolio[0].lots, 50);
     }
 }
