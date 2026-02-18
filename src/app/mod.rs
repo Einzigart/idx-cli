@@ -9,7 +9,6 @@ use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
 use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 use crate::config::Config;
 use anyhow::Result;
-use chrono::Local;
 use std::collections::HashMap;
 use tokio::time::Instant;
 
@@ -104,7 +103,6 @@ pub struct App {
     pub input_buffer: String,
     pub status_message: Option<String>,
     pub loading: bool,
-    pub last_updated: Option<String>,
     pub detail_symbol: Option<String>,
     pub detail_chart: Option<ChartData>,
     pub detail_news: Option<Vec<NewsItem>>,
@@ -145,7 +143,6 @@ impl App {
             input_buffer: String::new(),
             status_message: None,
             loading: false,
-            last_updated: None,
             detail_symbol: None,
             detail_chart: None,
             detail_news: None,
@@ -196,7 +193,6 @@ impl App {
         match self.client.get_quotes(symbols).await {
             Ok(quotes) => {
                 self.quotes = quotes;
-                self.last_updated = Some(Local::now().format("%H:%M:%S").to_string());
                 self.status_message = None;
             }
             Err(e) => {

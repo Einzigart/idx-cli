@@ -36,7 +36,7 @@ impl App {
         self.news_selected = 0;
     }
 
-    pub fn get_sorted_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
+    pub fn get_raw_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
         self.config
             .current_watchlist()
             .symbols
@@ -46,7 +46,7 @@ impl App {
     }
 
     pub fn get_filtered_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
-        let mut items = self.get_sorted_watchlist();
+        let mut items = self.get_raw_watchlist();
         if self.search_active {
             items.retain(|(symbol, _)| symbol.to_uppercase().contains(&self.search_query));
         }
