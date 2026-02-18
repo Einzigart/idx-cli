@@ -4,6 +4,9 @@ mod modals;
 mod news;
 mod tables;
 
+pub(crate) use news::NEWS_SORTABLE_COLUMNS;
+pub(crate) use tables::{PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
+
 use crate::app::{App, InputMode, ViewMode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},

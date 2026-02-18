@@ -6,6 +6,7 @@ mod sort;
 mod watchlist;
 
 use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
+use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 use crate::config::Config;
 use anyhow::Result;
 use chrono::Local;
@@ -244,9 +245,9 @@ impl App {
 
     pub fn cycle_sort_column(&mut self) {
         let num_columns = match self.view_mode {
-            ViewMode::Watchlist => 10,
-            ViewMode::Portfolio => 9,
-            ViewMode::News => 3,
+            ViewMode::Watchlist => WATCHLIST_SORTABLE_COLUMNS,
+            ViewMode::Portfolio => PORTFOLIO_SORTABLE_COLUMNS,
+            ViewMode::News => NEWS_SORTABLE_COLUMNS,
         };
         let (col, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_column, &mut self.selected_index),

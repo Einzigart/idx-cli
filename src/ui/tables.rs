@@ -27,6 +27,8 @@ const WATCHLIST_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "Value",    width: 14, priority: 3 },
     ColumnDef { name: "News",     width: 5,  priority: 4 },
 ];
+/// Number of sortable columns (excludes non-sortable indicator columns like News)
+pub(crate) const WATCHLIST_SORTABLE_COLUMNS: usize = 10;
 
 const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "Symbol",    width: 8,  priority: 1 },
@@ -40,6 +42,8 @@ const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "P/L %",     width: 10, priority: 1 },
     ColumnDef { name: "News",      width: 5,  priority: 4 },
 ];
+/// Number of sortable columns (excludes non-sortable indicator columns like News)
+pub(crate) const PORTFOLIO_SORTABLE_COLUMNS: usize = 9;
 
 pub(super) fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Vec<usize> {
     let max_priority = columns.iter().map(|c| c.priority).max().unwrap_or(1);

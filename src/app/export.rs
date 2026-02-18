@@ -96,7 +96,7 @@ impl App {
             }
             return Ok(home);
         }
-        anyhow::bail!("Could not determine export directory")
+        Ok(std::env::current_dir()?)
     }
 
     fn export_watchlist_csv(&self) -> String {

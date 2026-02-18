@@ -14,6 +14,7 @@ const NEWS_COLUMNS: &[ColumnDef] = &[
     ColumnDef { name: "Source",   width: 20, priority: 2 },
     ColumnDef { name: "Headline", width: 40, priority: 1 },
 ];
+pub(crate) const NEWS_SORTABLE_COLUMNS: usize = 3;
 
 fn news_row(i: usize, item: &NewsItem, vis: &[usize], selected: usize) -> Row<'static> {
     let is_selected = i == selected;
