@@ -1,6 +1,7 @@
 pub fn format_price(price: f64) -> String {
     if price >= 1000.0 {
-        let int_part = price as u64;
+        let rounded = (price * 100.0).round() / 100.0;
+        let int_part = rounded as u64;
         let formatted_int: String = int_part
             .to_string()
             .as_bytes()
@@ -9,7 +10,7 @@ pub fn format_price(price: f64) -> String {
             .map(|chunk| std::str::from_utf8(chunk).unwrap())
             .collect::<Vec<_>>()
             .join(",");
-        let frac = price - int_part as f64;
+        let frac = rounded - int_part as f64;
         if frac.abs() >= 0.005 {
             format!("{}.{:02}", formatted_int, (frac * 100.0).round() as u64)
         } else {
@@ -89,5 +90,26 @@ pub fn format_relative_time(unix_ts: i64) -> String {
         _ if hours > 0 => format!("{}h ago", hours),
         _ if mins > 0 => format!("{}m ago", mins),
         _ => "just now".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_price_rounding_bug() {
+        // Issue #1: frac >= 0.995 caused three-digit fractional part
+        assert_eq!(format_price(1500.999), "1,501");
+        assert_eq!(format_price(1500.995), "1,501");
+    }
+
+    #[test]
+    fn test_format_price_normal_cases() {
+        assert_eq!(format_price(1500.50), "1,500.50");
+        assert_eq!(format_price(1500.0), "1,500");
+        assert_eq!(format_price(1000.01), "1,000.01");
+        assert_eq!(format_price(999.99), "999.99");
+        assert_eq!(format_price(50.0), "50.00");
     }
 }
