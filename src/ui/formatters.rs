@@ -1,14 +1,20 @@
 pub fn format_price(price: f64) -> String {
     if price >= 1000.0 {
         let int_part = price as u64;
-        int_part
+        let formatted_int: String = int_part
             .to_string()
             .as_bytes()
             .rchunks(3)
             .rev()
             .map(|chunk| std::str::from_utf8(chunk).unwrap())
             .collect::<Vec<_>>()
-            .join(",")
+            .join(",");
+        let frac = price - int_part as f64;
+        if frac.abs() >= 0.005 {
+            format!("{}.{:02}", formatted_int, (frac * 100.0).round() as u64)
+        } else {
+            formatted_int
+        }
     } else {
         format!("{:.2}", price)
     }
