@@ -225,7 +225,7 @@ impl YahooClient {
             }
         }
 
-        // Pattern 2: "CrsrfToken":"value"
+        // Pattern 2: "CrumbStore":{"crumb":"value"}
         if let Some(start) = html.find("\"CrumbStore\":{\"crumb\":\"") {
             let start = start + 23;
             if let Some(end) = html[start..].find('"') {

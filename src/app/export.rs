@@ -101,7 +101,7 @@ impl App {
 
     fn export_watchlist_csv(&self) -> String {
         let mut csv = String::from("Symbol,Name,Price,Change,Change%,Open,High,Low,Volume\n");
-        for (symbol, quote) in self.get_sorted_watchlist() {
+        for (symbol, quote) in self.get_raw_watchlist() {
             if let Some(q) = quote {
                 csv.push_str(&format!(
                     "{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{}\n",
@@ -124,7 +124,7 @@ impl App {
 
     fn export_watchlist_json(&self) -> String {
         let data: Vec<serde_json::Value> = self
-            .get_sorted_watchlist()
+            .get_raw_watchlist()
             .iter()
             .map(|(symbol, quote)| {
                 if let Some(q) = quote {
