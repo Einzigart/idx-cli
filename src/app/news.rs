@@ -11,10 +11,15 @@ impl App {
             .any(|item| item.published_at >= cutoff && title_contains_ticker(&item.title, &sym))
     }
 
-    pub async fn refresh_news(&mut self) {
+    /// Set `rss_loading = true` and return the feed URLs.
+    pub fn prepare_news_refresh(&mut self) -> Vec<String> {
         self.rss_loading = true;
-        let urls = self.config.news_sources.clone();
-        match self.news_client.fetch_all(&urls).await {
+        self.config.news_sources.clone()
+    }
+
+    /// Execute the network fetch for news feeds and clear `rss_loading`.
+    pub async fn execute_news_refresh(&mut self, urls: &[String]) {
+        match self.news_client.fetch_all(urls).await {
             Ok(items) => {
                 self.news_items = items;
                 self.news_last_refresh = Some(tokio::time::Instant::now());

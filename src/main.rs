@@ -58,6 +58,32 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// Draw, fetch quotes, and reset the refresh timer.
+/// The caller must have already called `app.prepare_refresh()` so that
+/// `loading = true` is visible in the draw that happens here.
+async fn refresh_and_draw<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    symbols: &[String],
+    last_refresh: &mut Instant,
+) -> Result<()> {
+    terminal.draw(|frame| ui::draw(frame, app))?;
+    app.execute_refresh(symbols).await?;
+    *last_refresh = Instant::now();
+    Ok(())
+}
+
+/// Draw, fetch news feeds, then clear the loading flag.
+async fn refresh_news_and_draw<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    urls: &[String],
+) -> Result<()> {
+    terminal.draw(|frame| ui::draw(frame, app))?;
+    app.execute_news_refresh(urls).await;
+    Ok(())
+}
+
 async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
     let refresh_interval = Duration::from_secs(app.config.refresh_interval_secs);
     let news_refresh_interval = Duration::from_secs(300); // 5 minutes
@@ -65,9 +91,11 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
 
     loop {
         // Auto-refresh quotes (skip in News view)
-        if app.view_mode != ViewMode::News && last_refresh.elapsed() >= refresh_interval {
-            app.refresh_quotes().await?;
-            last_refresh = Instant::now();
+        if app.view_mode != ViewMode::News
+            && last_refresh.elapsed() >= refresh_interval
+            && let Some(symbols) = app.prepare_refresh()
+        {
+            refresh_and_draw(terminal, app, &symbols, &mut last_refresh).await?;
         }
 
         // Auto-refresh news when in News view
@@ -77,7 +105,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                 None => true,
             };
             if should_refresh && !app.rss_loading {
-                app.refresh_news().await;
+                let urls = app.prepare_news_refresh();
+                refresh_news_and_draw(terminal, app, &urls).await?;
             }
         }
 
@@ -113,7 +142,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         app.toggle_view();
                         if app.view_mode == ViewMode::News {
                             if app.news_last_refresh.is_none() {
-                                app.refresh_news().await;
+                                let urls = app.prepare_news_refresh();
+                                refresh_news_and_draw(terminal, app, &urls).await?;
                             }
                         } else {
                             needs_refresh = true;
@@ -136,7 +166,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     }
                     KeyCode::Char('r') => {
                         if app.view_mode == ViewMode::News {
-                            app.refresh_news().await;
+                            let urls = app.prepare_news_refresh();
+                            refresh_news_and_draw(terminal, app, &urls).await?;
                         } else {
                             needs_refresh = true;
                         }
@@ -275,9 +306,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                 },
             }
 
-            if needs_refresh {
-                app.refresh_quotes().await?;
-                last_refresh = Instant::now();
+            if needs_refresh
+                && let Some(symbols) = app.prepare_refresh()
+            {
+                refresh_and_draw(terminal, app, &symbols, &mut last_refresh).await?;
             }
         }
     }

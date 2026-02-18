@@ -176,17 +176,24 @@ impl App {
         })
     }
 
-    pub async fn refresh_quotes(&mut self) -> Result<()> {
-        self.loading = true;
+    /// Collect symbols and set `loading = true`. Returns `None` for News view
+    /// or empty watchlists (no network call needed).
+    pub fn prepare_refresh(&mut self) -> Option<Vec<String>> {
         let symbols: Vec<String> = match self.view_mode {
             ViewMode::Watchlist => self.config.current_watchlist().symbols.clone(),
             ViewMode::Portfolio => self.config.portfolio_symbols(),
-            ViewMode::News => {
-                self.loading = false;
-                return Ok(());
-            }
+            ViewMode::News => return None,
         };
-        match self.client.get_quotes(&symbols).await {
+        if symbols.is_empty() {
+            return None;
+        }
+        self.loading = true;
+        Some(symbols)
+    }
+
+    /// Execute the network fetch for the given symbols and clear `loading`.
+    pub async fn execute_refresh(&mut self, symbols: &[String]) -> Result<()> {
+        match self.client.get_quotes(symbols).await {
             Ok(quotes) => {
                 self.quotes = quotes;
                 self.last_updated = Some(Local::now().format("%H:%M:%S").to_string());
@@ -310,7 +317,8 @@ impl App {
 
         // Ensure RSS news is loaded before filtering
         if self.news_items.is_empty() {
-            self.refresh_news().await;
+            let urls = self.prepare_news_refresh();
+            self.execute_news_refresh(&urls).await;
         }
 
         // Filter RSS headlines matching this stock's ticker or company name
