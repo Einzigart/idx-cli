@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
-use reqwest::{cookie::Jar, Client};
+use anyhow::{Result, anyhow};
+use reqwest::{Client, cookie::Jar};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;

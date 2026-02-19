@@ -4,7 +4,6 @@ use reqwest::Client;
 use std::time::Duration;
 
 /// Extract a short publisher name from the feed URL's domain.
-/// e.g. "https://www.cnbcindonesia.com/market/rss" → "CNBC Indonesia"
 fn publisher_from_url(url: &str) -> String {
     let host = url
         .strip_prefix("https://")
@@ -18,16 +17,13 @@ fn publisher_from_url(url: &str) -> String {
         .trim_start_matches("feeds.");
 
     match host {
-        "cnbcindonesia.com" => "CNBC Indonesia".to_string(),        "idxchannel.com" => "IDX Channel".to_string(),
+        "cnbcindonesia.com" => "CNBC Indonesia".to_string(),
+        "idxchannel.com" => "IDX Channel".to_string(),
         "tempo.co" => "Tempo".to_string(),
         "kontan.co.id" => "Kontan".to_string(),
         "feedburner.com" => "Feedburner".to_string(),
         // Fallback: use domain as-is, dropping TLD
-        other => other
-            .split('.')
-            .next()
-            .unwrap_or(other)
-            .to_string(),
+        other => other.split('.').next().unwrap_or(other).to_string(),
     }
 }
 
