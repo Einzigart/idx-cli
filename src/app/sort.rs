@@ -1,8 +1,8 @@
+use super::SortDirection;
 use crate::api::{NewsItem, StockQuote};
 use crate::config::Holding;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use super::SortDirection;
 
 pub fn cmp_f64(a: f64, b: f64) -> Ordering {
     a.partial_cmp(&b).unwrap_or(Ordering::Equal)
@@ -48,8 +48,14 @@ pub fn compare_portfolio_column(
 ) -> Ordering {
     let price_a = quotes.get(&a.symbol).map(|q| q.price).unwrap_or(0.0);
     let price_b = quotes.get(&b.symbol).map(|q| q.price).unwrap_or(0.0);
-    let name_a = quotes.get(&a.symbol).map(|q| q.short_name.as_str()).unwrap_or("");
-    let name_b = quotes.get(&b.symbol).map(|q| q.short_name.as_str()).unwrap_or("");
+    let name_a = quotes
+        .get(&a.symbol)
+        .map(|q| q.short_name.as_str())
+        .unwrap_or("");
+    let name_b = quotes
+        .get(&b.symbol)
+        .map(|q| q.short_name.as_str())
+        .unwrap_or("");
     match col {
         0 => a.symbol.cmp(&b.symbol),
         1 => name_a.cmp(name_b),

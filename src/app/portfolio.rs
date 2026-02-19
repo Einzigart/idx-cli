@@ -92,7 +92,9 @@ impl App {
                 self.pending_lots = Some(lots);
                 // Pre-fill with current avg_price
                 if let Some(ref symbol) = self.pending_edit_symbol {
-                    if let Some(holding) = self.config.portfolio.iter().find(|h| &h.symbol == symbol) {
+                    if let Some(holding) =
+                        self.config.portfolio.iter().find(|h| &h.symbol == symbol)
+                    {
                         self.input_buffer = holding.avg_price.to_string();
                     } else {
                         self.input_buffer.clear();
@@ -116,8 +118,10 @@ impl App {
                     (Some(symbol), Some(lots)) => {
                         self.config.update_holding(symbol, lots, avg_price);
                         self.config.save()?;
-                        self.status_message =
-                            Some(format!("Updated {} → {} lots @ {}", symbol, lots, avg_price));
+                        self.status_message = Some(format!(
+                            "Updated {} → {} lots @ {}",
+                            symbol, lots, avg_price
+                        ));
                     }
                     _ => {
                         self.status_message = Some("Missing edit data".to_string());
@@ -192,7 +196,11 @@ impl App {
         items
             .into_iter()
             .map(|(sym, val)| {
-                let pct = if total > 0.0 { (val / total) * 100.0 } else { 0.0 };
+                let pct = if total > 0.0 {
+                    (val / total) * 100.0
+                } else {
+                    0.0
+                };
                 (sym, val, pct)
             })
             .collect()

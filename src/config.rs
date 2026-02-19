@@ -92,11 +92,7 @@ impl Default for Config {
                 },
                 Watchlist {
                     name: "Tech".to_string(),
-                    symbols: vec![
-                        "TLKM".to_string(),
-                        "GOTO".to_string(),
-                        "BUKA".to_string(),
-                    ],
+                    symbols: vec!["TLKM".to_string(), "GOTO".to_string(), "BUKA".to_string()],
                 },
                 Watchlist {
                     name: "Mining".to_string(),
@@ -193,7 +189,9 @@ impl Config {
 
     pub fn remove_stock(&mut self, symbol: &str) {
         let symbol = symbol.to_uppercase();
-        self.current_watchlist_mut().symbols.retain(|s| s != &symbol);
+        self.current_watchlist_mut()
+            .symbols
+            .retain(|s| s != &symbol);
     }
 
     pub fn add_watchlist(&mut self, name: &str) {
@@ -218,7 +216,6 @@ impl Config {
     }
 
     /// Add a new holding or merge into an existing one.
-    /// Returns `false` if merging would overflow the lot count.
     pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) -> bool {
         let symbol = symbol.to_uppercase();
         // Check if holding exists, update it
@@ -295,7 +292,11 @@ mod tests {
         let ok = config.add_holding("BBCA", 2_000_000_000, 9000.0);
         assert!(!ok, "add_holding should return false on u32 overflow");
         // Original holding should be unchanged
-        let h = config.portfolio.iter().find(|h| h.symbol == "BBCA").unwrap();
+        let h = config
+            .portfolio
+            .iter()
+            .find(|h| h.symbol == "BBCA")
+            .unwrap();
         assert_eq!(h.lots, 3_000_000_000);
         assert_eq!(h.avg_price, 8000.0);
     }
@@ -306,7 +307,11 @@ mod tests {
         config.add_holding("BBCA", 100, 8000.0);
         let ok = config.add_holding("BBCA", 100, 9000.0);
         assert!(ok);
-        let h = config.portfolio.iter().find(|h| h.symbol == "BBCA").unwrap();
+        let h = config
+            .portfolio
+            .iter()
+            .find(|h| h.symbol == "BBCA")
+            .unwrap();
         assert_eq!(h.lots, 200);
         // Weighted avg: (100*100*8000 + 100*100*9000) / (200*100) = 8500
         assert!((h.avg_price - 8500.0).abs() < 0.01);

@@ -152,8 +152,7 @@ impl App {
     }
 
     fn export_portfolio_csv(&self) -> String {
-        let mut csv =
-            String::from("Symbol,Lots,Shares,AvgPrice,CurrentPrice,Value,Cost,PL,PL%\n");
+        let mut csv = String::from("Symbol,Lots,Shares,AvgPrice,CurrentPrice,Value,Cost,PL,PL%\n");
         for holding in &self.config.portfolio {
             let curr_price = self
                 .quotes
