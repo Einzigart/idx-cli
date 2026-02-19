@@ -11,6 +11,7 @@ use crate::config::Config;
 use anyhow::Result;
 use std::collections::HashMap;
 use tokio::time::Instant;
+use ratatui::widgets::TableState;
 
 /// Check if a headline contains a ticker as a whole word, not as a substring.
 /// e.g. "DEWA" matches "Saham DEWA Naik" and "Darma (DEWA)" but not "Dewan Pengawas".
@@ -50,6 +51,7 @@ pub enum InputMode {
     PortfolioChart,
     PortfolioEditLots,
     PortfolioEditPrice,
+    NewsDetail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,6 +130,13 @@ pub struct App {
     pub rss_loading: bool,
     pub news_sort_column: Option<usize>,
     pub news_sort_direction: SortDirection,
+    pub news_detail_content: Option<String>,
+    pub news_detail_loading: bool,
+    pub news_detail_scroll: usize,
+    pub watchlist_table_state: TableState,
+    pub portfolio_table_state: TableState,
+    pub news_table_state: TableState,
+    pub table_viewport_height: usize,
     news_client: NewsClient,
     client: YahooClient,
 }
@@ -168,6 +177,13 @@ impl App {
             rss_loading: false,
             news_sort_column: None,
             news_sort_direction: SortDirection::Ascending,
+            news_detail_content: None,
+            news_detail_loading: false,
+            news_detail_scroll: 0,
+            watchlist_table_state: TableState::default(),
+            portfolio_table_state: TableState::default(),
+            news_table_state: TableState::default(),
+            table_viewport_height: 0,
             news_client: NewsClient::new(),
             client: YahooClient::new(),
         })
@@ -213,31 +229,69 @@ impl App {
     }
 
     pub fn move_up(&mut self) {
+        let vh = self.table_viewport_height;
         match self.view_mode {
             ViewMode::Watchlist => {
                 if self.selected_index > 0 {
                     self.selected_index -= 1;
+                }
+                let sel = self.selected_index;
+                let state = &mut self.watchlist_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
                 }
             }
             ViewMode::Portfolio => {
                 if self.portfolio_selected > 0 {
                     self.portfolio_selected -= 1;
                 }
+                let sel = self.portfolio_selected;
+                let state = &mut self.portfolio_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
+                }
             }
             ViewMode::News => {
                 if self.news_selected > 0 {
                     self.news_selected -= 1;
+                }
+                let sel = self.news_selected;
+                let state = &mut self.news_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
                 }
             }
         }
     }
 
     pub fn move_down(&mut self) {
+        let vh = self.table_viewport_height;
         match self.view_mode {
             ViewMode::Watchlist => {
                 let len = self.get_filtered_watchlist().len();
                 if len > 0 && self.selected_index < len - 1 {
                     self.selected_index += 1;
+                }
+                let sel = self.selected_index;
+                let state = &mut self.watchlist_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
                 }
             }
             ViewMode::Portfolio => {
@@ -245,11 +299,29 @@ impl App {
                 if len > 0 && self.portfolio_selected < len - 1 {
                     self.portfolio_selected += 1;
                 }
+                let sel = self.portfolio_selected;
+                let state = &mut self.portfolio_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
+                }
             }
             ViewMode::News => {
                 let len = self.get_filtered_news().len();
                 if len > 0 && self.news_selected < len - 1 {
                     self.news_selected += 1;
+                }
+                let sel = self.news_selected;
+                let state = &mut self.news_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
                 }
             }
         }

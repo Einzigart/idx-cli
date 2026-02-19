@@ -71,6 +71,7 @@ fn default_refresh_interval() -> u64 {
 fn default_news_sources() -> Vec<String> {
     vec![
         "https://www.cnbcindonesia.com/market/rss".to_string(),
+        "https://www.cnbcindonesia.com/news/rss".to_string(),
         "https://www.idxchannel.com/rss".to_string(),
         "https://rss.tempo.co/bisnis".to_string(),
     ]
@@ -269,18 +270,16 @@ impl Config {
     /// Replace dead RSS feeds with working alternatives. Returns true if changed.
     fn migrate_news_sources(&mut self) -> bool {
         const DEAD_KONTAN: &str = "https://www.kontan.co.id/rss/investasi";
-        let had_kontan = self.news_sources.iter().any(|u| u == DEAD_KONTAN);
-        if !had_kontan {
-            return false;
-        }
         self.news_sources.retain(|u| u != DEAD_KONTAN);
         let defaults = default_news_sources();
+        let mut changed = false;
         for url in &defaults {
             if !self.news_sources.contains(url) {
                 self.news_sources.push(url.clone());
+                changed = true;
             }
         }
-        true
+        changed
     }
 }
 

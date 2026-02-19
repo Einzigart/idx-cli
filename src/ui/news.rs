@@ -3,7 +3,7 @@ use crate::app::App;
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table, TableState},
+    widgets::{Block, Borders, Cell, Row, Table},
     Frame,
 };
 use super::formatters::*;
@@ -16,38 +16,22 @@ const NEWS_COLUMNS: &[ColumnDef] = &[
 ];
 pub(crate) const NEWS_SORTABLE_COLUMNS: usize = 3;
 
-fn news_row(i: usize, item: &NewsItem, vis: &[usize], selected: usize) -> Row<'static> {
-    let is_selected = i == selected;
-    let text_style = if is_selected {
-        Style::default().fg(Color::White)
-    } else {
-        Style::default()
-    };
-    let bold_text = if is_selected {
-        text_style.add_modifier(Modifier::BOLD)
-    } else {
-        text_style
-    };
-
+fn news_row(item: &NewsItem, vis: &[usize]) -> Row<'static> {
     let cells: Vec<Cell> = vis
         .iter()
         .map(|&col| match col {
-            0 => Cell::from(format_relative_time(item.published_at)).style(text_style),
-            1 => Cell::from(truncate_str(&item.publisher, 18)).style(text_style),
-            2 => Cell::from(item.title.clone()).style(bold_text),
+            0 => Cell::from(format_relative_time(item.published_at)),
+            1 => Cell::from(truncate_str(&item.publisher, 18)),
+            2 => Cell::from(item.title.clone()),
             _ => Cell::from(""),
         })
         .collect();
-
-    let row_style = if is_selected {
-        Style::default().bg(Color::Rgb(40, 60, 100))
-    } else {
-        Style::default()
-    };
-    Row::new(cells).style(row_style)
+    Row::new(cells)
 }
 
-pub fn draw_news(frame: &mut Frame, area: Rect, app: &App) {
+pub fn draw_news(frame: &mut Frame, area: Rect, app: &mut App) {
+    // rows visible = area height - 2 (borders) - 1 (header)
+    app.table_viewport_height = area.height.saturating_sub(3) as usize;
     let available_width = area.width.saturating_sub(2);
     let vis = visible_columns(NEWS_COLUMNS, available_width);
     let header = sort_header_row(
@@ -61,8 +45,7 @@ pub fn draw_news(frame: &mut Frame, area: Rect, app: &App) {
     let filtered = app.get_filtered_news();
     let rows: Vec<Row> = filtered
         .iter()
-        .enumerate()
-        .map(|(i, item)| news_row(i, item, &vis, app.news_selected))
+        .map(|item| news_row(item, &vis))
         .collect();
 
     let title = if app.rss_loading {
@@ -74,9 +57,14 @@ pub fn draw_news(frame: &mut Frame, area: Rect, app: &App) {
     let constraints = column_constraints(NEWS_COLUMNS, &vis, Some(2), available_width);
     let table = Table::new(rows, constraints)
         .header(header)
+        .row_highlight_style(
+            Style::default()
+                .bg(Color::Rgb(40, 60, 100))
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        )
         .block(Block::default().borders(Borders::ALL).title(title));
 
-    let mut state = TableState::default();
-    state.select(Some(app.news_selected));
+    let mut state = app.news_table_state.clone();
     frame.render_stateful_widget(table, area, &mut state);
 }

@@ -1,6 +1,6 @@
 use chrono::Utc;
 
-use super::{title_contains_ticker, App};
+use super::{title_contains_ticker, App, InputMode};
 
 impl App {
     pub fn has_recent_news(&self, symbol: &str) -> bool {
@@ -30,5 +30,17 @@ impl App {
             }
         }
         self.rss_loading = false;
+    }
+
+    /// Open the news detail modal for the currently selected news item.
+    pub fn open_news_detail(&mut self) {
+        let items = self.get_filtered_news();
+        if items.get(self.news_selected).is_none() {
+            return;
+        }
+        self.input_mode = InputMode::NewsDetail;
+        self.news_detail_loading = false;
+        self.news_detail_content = None;
+        self.news_detail_scroll = 0;
     }
 }
