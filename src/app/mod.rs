@@ -6,12 +6,12 @@ mod sort;
 mod watchlist;
 
 use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
-use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 use crate::config::Config;
+use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 use anyhow::Result;
+use ratatui::widgets::TableState;
 use std::collections::HashMap;
 use tokio::time::Instant;
-use ratatui::widgets::TableState;
 
 /// Check if a headline contains a ticker as a whole word, not as a substring.
 /// e.g. "DEWA" matches "Saham DEWA Naik" and "Darma (DEWA)" but not "Dewan Pengawas".
@@ -22,10 +22,9 @@ pub fn title_contains_ticker(title: &str, ticker: &str) -> bool {
         let abs_pos = start + pos;
         let end_pos = abs_pos + ticker.len();
 
-        let before_ok = abs_pos == 0
-            || !title_upper.as_bytes()[abs_pos - 1].is_ascii_alphabetic();
-        let after_ok = end_pos >= title_upper.len()
-            || !title_upper.as_bytes()[end_pos].is_ascii_alphabetic();
+        let before_ok = abs_pos == 0 || !title_upper.as_bytes()[abs_pos - 1].is_ascii_alphabetic();
+        let after_ok =
+            end_pos >= title_upper.len() || !title_upper.as_bytes()[end_pos].is_ascii_alphabetic();
 
         if before_ok && after_ok {
             return true;
@@ -130,8 +129,6 @@ pub struct App {
     pub rss_loading: bool,
     pub news_sort_column: Option<usize>,
     pub news_sort_direction: SortDirection,
-    pub news_detail_content: Option<String>,
-    pub news_detail_loading: bool,
     pub news_detail_scroll: usize,
     pub watchlist_table_state: TableState,
     pub portfolio_table_state: TableState,
@@ -177,8 +174,6 @@ impl App {
             rss_loading: false,
             news_sort_column: None,
             news_sort_direction: SortDirection::Ascending,
-            news_detail_content: None,
-            news_detail_loading: false,
             news_detail_scroll: 0,
             watchlist_table_state: TableState::default(),
             portfolio_table_state: TableState::default(),
@@ -335,7 +330,10 @@ impl App {
         };
         let (col, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_column, &mut self.selected_index),
-            ViewMode::Portfolio => (&mut self.portfolio_sort_column, &mut self.portfolio_selected),
+            ViewMode::Portfolio => (
+                &mut self.portfolio_sort_column,
+                &mut self.portfolio_selected,
+            ),
             ViewMode::News => (&mut self.news_sort_column, &mut self.news_selected),
         };
         *col = match *col {
@@ -349,7 +347,10 @@ impl App {
     pub fn toggle_sort_direction(&mut self) {
         let (dir, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_direction, &mut self.selected_index),
-            ViewMode::Portfolio => (&mut self.portfolio_sort_direction, &mut self.portfolio_selected),
+            ViewMode::Portfolio => (
+                &mut self.portfolio_sort_direction,
+                &mut self.portfolio_selected,
+            ),
             ViewMode::News => (&mut self.news_sort_direction, &mut self.news_selected),
         };
         dir.toggle();

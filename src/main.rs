@@ -9,7 +9,7 @@ use clap::Parser;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::prelude::*;
 use std::io;
@@ -137,13 +137,11 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Char('q') => return Ok(()),
                     KeyCode::Char('?') => app.show_help(),
                     KeyCode::Char('/') => app.start_search(),
-                    KeyCode::Char('e') => {
-                        match app.view_mode {
-                            ViewMode::Portfolio => app.start_portfolio_edit(),
-                            ViewMode::Watchlist => app.start_export(),
-                            ViewMode::News => {}
-                        }
-                    }
+                    KeyCode::Char('e') => match app.view_mode {
+                        ViewMode::Portfolio => app.start_portfolio_edit(),
+                        ViewMode::Watchlist => app.start_export(),
+                        ViewMode::News => {}
+                    },
                     KeyCode::Char('p') => {
                         app.toggle_view();
                         if app.view_mode == ViewMode::News {
@@ -155,13 +153,11 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             needs_refresh = true;
                         }
                     }
-                    KeyCode::Char('a') => {
-                        match app.view_mode {
-                            ViewMode::Watchlist => app.start_adding(),
-                            ViewMode::Portfolio => app.start_portfolio_add(),
-                            ViewMode::News => {}
-                        }
-                    }
+                    KeyCode::Char('a') => match app.view_mode {
+                        ViewMode::Watchlist => app.start_adding(),
+                        ViewMode::Portfolio => app.start_portfolio_add(),
+                        ViewMode::News => {}
+                    },
                     KeyCode::Char('d') => {
                         match app.view_mode {
                             ViewMode::Watchlist => app.remove_selected()?,
@@ -208,13 +204,11 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             needs_refresh = true;
                         }
                     }
-                    KeyCode::Enter => {
-                        match app.view_mode {
-                            ViewMode::Watchlist => app.show_stock_detail().await,
-                            ViewMode::Portfolio => app.show_portfolio_detail().await,
-                            ViewMode::News => app.open_news_detail(),
-                        }
-                    }
+                    KeyCode::Enter => match app.view_mode {
+                        ViewMode::Watchlist => app.show_stock_detail().await,
+                        ViewMode::Portfolio => app.show_portfolio_detail().await,
+                        ViewMode::News => app.open_news_detail(),
+                    },
                     KeyCode::Char('s') => app.cycle_sort_column(),
                     KeyCode::Char('S') => app.toggle_sort_direction(),
                     KeyCode::Char('c') => {
@@ -247,13 +241,14 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     _ => {}
                 },
                 InputMode::PortfolioChart => match key.code {
-                    KeyCode::Esc | KeyCode::Enter | KeyCode::Char('c') => app.close_portfolio_chart(),
+                    KeyCode::Esc | KeyCode::Enter | KeyCode::Char('c') => {
+                        app.close_portfolio_chart()
+                    }
                     _ => {}
                 },
                 InputMode::NewsDetail => match key.code {
                     KeyCode::Esc | KeyCode::Char('q') => {
                         app.input_mode = InputMode::Normal;
-                        app.news_detail_content = None;
                     }
                     KeyCode::Down => {
                         app.news_detail_scroll = app.news_detail_scroll.saturating_add(1);
@@ -274,52 +269,57 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                 },
                 // All text-input modes share common Backspace/Esc handling
                 _ => match key.code {
-                    KeyCode::Esc => {
-                        match app.input_mode {
-                            InputMode::PortfolioAddSymbol
-                            | InputMode::PortfolioAddLots
-                            | InputMode::PortfolioAddPrice => app.cancel_portfolio_add(),
-                            InputMode::PortfolioEditLots
-                            | InputMode::PortfolioEditPrice => app.cancel_portfolio_edit(),
-                            InputMode::Search => app.cancel_search(),
-                            _ => app.cancel_input(),
+                    KeyCode::Esc => match app.input_mode {
+                        InputMode::PortfolioAddSymbol
+                        | InputMode::PortfolioAddLots
+                        | InputMode::PortfolioAddPrice => app.cancel_portfolio_add(),
+                        InputMode::PortfolioEditLots | InputMode::PortfolioEditPrice => {
+                            app.cancel_portfolio_edit()
                         }
-                    }
-                    KeyCode::Enter => {
-                        match app.input_mode {
-                            InputMode::Adding => {
-                                app.confirm_add()?;
-                                needs_refresh = true;
-                            }
-                            InputMode::WatchlistAdd => {
-                                app.confirm_watchlist_add()?;
-                                needs_refresh = true;
-                            }
-                            InputMode::WatchlistRename => {
-                                app.confirm_watchlist_rename()?;
-                                needs_refresh = true;
-                            }
-                            InputMode::PortfolioAddSymbol => app.confirm_portfolio_symbol(),
-                            InputMode::PortfolioAddLots => app.confirm_portfolio_lots(),
-                            InputMode::PortfolioAddPrice => {
-                                app.confirm_portfolio_price()?;
-                                needs_refresh = true;
-                            }
-                            InputMode::PortfolioEditLots => app.confirm_portfolio_edit_lots(),
-                            InputMode::PortfolioEditPrice => {
-                                app.confirm_portfolio_edit_price()?;
-                                needs_refresh = true;
-                            }
-                            InputMode::Search => app.confirm_search(),
-                            _ => {}
+                        InputMode::Search => app.cancel_search(),
+                        _ => app.cancel_input(),
+                    },
+                    KeyCode::Enter => match app.input_mode {
+                        InputMode::Adding => {
+                            app.confirm_add()?;
+                            needs_refresh = true;
                         }
+                        InputMode::WatchlistAdd => {
+                            app.confirm_watchlist_add()?;
+                            needs_refresh = true;
+                        }
+                        InputMode::WatchlistRename => {
+                            app.confirm_watchlist_rename()?;
+                            needs_refresh = true;
+                        }
+                        InputMode::PortfolioAddSymbol => app.confirm_portfolio_symbol(),
+                        InputMode::PortfolioAddLots => app.confirm_portfolio_lots(),
+                        InputMode::PortfolioAddPrice => {
+                            app.confirm_portfolio_price()?;
+                            needs_refresh = true;
+                        }
+                        InputMode::PortfolioEditLots => app.confirm_portfolio_edit_lots(),
+                        InputMode::PortfolioEditPrice => {
+                            app.confirm_portfolio_edit_price()?;
+                            needs_refresh = true;
+                        }
+                        InputMode::Search => app.confirm_search(),
+                        _ => {}
+                    },
+                    KeyCode::Backspace => {
+                        app.input_buffer.pop();
                     }
-                    KeyCode::Backspace => { app.input_buffer.pop(); }
                     KeyCode::Char(c) => {
                         let allowed = match app.input_mode {
-                            InputMode::Adding | InputMode::PortfolioAddSymbol => c.is_alphanumeric(),
-                            InputMode::PortfolioAddLots | InputMode::PortfolioEditLots => c.is_ascii_digit(),
-                            InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => c.is_ascii_digit() || c == '.',
+                            InputMode::Adding | InputMode::PortfolioAddSymbol => {
+                                c.is_alphanumeric()
+                            }
+                            InputMode::PortfolioAddLots | InputMode::PortfolioEditLots => {
+                                c.is_ascii_digit()
+                            }
+                            InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => {
+                                c.is_ascii_digit() || c == '.'
+                            }
                             InputMode::WatchlistAdd | InputMode::WatchlistRename => {
                                 c.is_alphanumeric() || c == ' ' || c == '-' || c == '_'
                             }
@@ -334,9 +334,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                 },
             }
 
-            if needs_refresh
-                && let Some(symbols) = app.prepare_refresh()
-            {
+            if needs_refresh && let Some(symbols) = app.prepare_refresh() {
                 refresh_and_draw(terminal, app, &symbols, &mut last_refresh).await?;
             }
         }

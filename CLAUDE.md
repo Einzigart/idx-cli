@@ -47,6 +47,7 @@ src/
 │   ├── tables.rs    # Column defs, visible_columns(), draw_watchlist(), draw_portfolio()
 │   ├── news.rs      # draw_news() table for RSS headlines (Time, Source, Headline columns)
 │   ├── modals.rs    # draw_help(), draw_export_menu(), draw_portfolio_chart()
+│   ├── news_detail.rs # draw_news_detail() modal with HTML stripping, word wrap, scrollable preview
 │   ├── detail.rs    # draw_stock_detail() with section helpers (price, range, fundamentals, risk)
 │   └── formatters.rs # format_price, format_change, format_compact, format_pl, format_relative_time, etc.
 ├── config.rs        # Persistent config: watchlists, holdings, JSON file storage
