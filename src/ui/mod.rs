@@ -2,6 +2,7 @@ mod detail;
 mod formatters;
 mod modals;
 mod news;
+mod news_detail;
 mod tables;
 
 pub(crate) use news::NEWS_SORTABLE_COLUMNS;
@@ -9,11 +10,11 @@ pub(crate) use tables::{PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 
 use crate::app::{App, InputMode, ViewMode};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 pub(super) fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
@@ -68,7 +69,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         modals::draw_portfolio_chart(frame, app);
     }
     if app.input_mode == InputMode::NewsDetail {
-        modals::draw_news_detail(frame, app);
+        news_detail::draw_news_detail(frame, app);
     }
 }
 
@@ -96,9 +97,17 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     };
 
     let header = Paragraph::new(Line::from(vec![
-        Span::styled(" IDX Stock Tracker ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " IDX Stock Tracker ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled("| ", Style::default().fg(Color::DarkGray)),
-        Span::styled(view_indicator, Style::default().fg(view_color).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            view_indicator,
+            Style::default().fg(view_color).add_modifier(Modifier::BOLD),
+        ),
         filter_span,
         Span::styled(" ", Style::default()),
         Span::styled(status, Style::default().fg(Color::DarkGray)),
@@ -112,9 +121,16 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let content = match app.input_mode {
         InputMode::Normal => {
             let help = match app.view_mode {
-                ViewMode::Watchlist => " [a] Add [d] Del [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help ",
-                ViewMode::Portfolio => " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help ",
-                ViewMode::News => " [r] Refresh [s] Sort [/] Search [p] Watchlist [Enter] Preview [↑↓] Nav [?] Help ",            };
+                ViewMode::Watchlist => {
+                    " [a] Add [d] Del [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help "
+                }
+                ViewMode::Portfolio => {
+                    " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help "
+                }
+                ViewMode::News => {
+                    " [r] Refresh [s] Sort [/] Search [p] Watchlist [Enter] Preview [↑↓] Nav [?] Help "
+                }
+            };
             if let Some(msg) = &app.status_message {
                 Line::from(vec![
                     Span::styled(msg, Style::default().fg(Color::Yellow)),
@@ -163,7 +179,10 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             let symbol = app.pending_symbol.as_deref().unwrap_or("");
             let lots = app.pending_lots.unwrap_or(0);
             Line::from(vec![
-                Span::styled(format!("{} {}lot ", symbol, lots), Style::default().fg(Color::Green)),
+                Span::styled(
+                    format!("{} {}lot ", symbol, lots),
+                    Style::default().fg(Color::Green),
+                ),
                 Span::raw("Avg Price: "),
                 Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
                 Span::styled("█", Style::default().fg(Color::Magenta)),
@@ -183,7 +202,10 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             let symbol = app.pending_edit_symbol.as_deref().unwrap_or("");
             let lots = app.pending_lots.unwrap_or(0);
             Line::from(vec![
-                Span::styled(format!(" Edit {} {}lot ", symbol, lots), Style::default().fg(Color::Green)),
+                Span::styled(
+                    format!(" Edit {} {}lot ", symbol, lots),
+                    Style::default().fg(Color::Green),
+                ),
                 Span::raw("Avg Price: "),
                 Span::styled(&app.input_buffer, Style::default().fg(Color::Magenta)),
                 Span::styled("█", Style::default().fg(Color::Magenta)),

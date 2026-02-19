@@ -1,6 +1,6 @@
 use chrono::Utc;
 
-use super::{title_contains_ticker, App, InputMode};
+use super::{App, InputMode, title_contains_ticker};
 
 impl App {
     pub fn has_recent_news(&self, symbol: &str) -> bool {
@@ -39,8 +39,6 @@ impl App {
             return;
         }
         self.input_mode = InputMode::NewsDetail;
-        self.news_detail_loading = false;
-        self.news_detail_content = None;
         self.news_detail_scroll = 0;
     }
 }
