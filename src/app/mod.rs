@@ -176,9 +176,9 @@ impl App {
         })
     }
 
-    /// Collect symbols and set `loading = true`. Returns `None` for News view
+    /// Collect symbols for the current view. Returns `None` for News view
     /// or empty watchlists (no network call needed).
-    pub fn prepare_refresh(&mut self) -> Option<Vec<String>> {
+    pub fn refresh_symbols(&self) -> Option<Vec<String>> {
         let symbols: Vec<String> = match self.view_mode {
             ViewMode::Watchlist => self.config.current_watchlist().symbols.clone(),
             ViewMode::Portfolio => self.config.portfolio_symbols(),
@@ -187,8 +187,17 @@ impl App {
         if symbols.is_empty() {
             return None;
         }
-        self.loading = true;
         Some(symbols)
+    }
+
+    /// Collect symbols and set `loading = true`. Returns `None` for News view
+    /// or empty watchlists (no network call needed).
+    pub fn prepare_refresh(&mut self) -> Option<Vec<String>> {
+        let symbols = self.refresh_symbols();
+        if symbols.is_some() {
+            self.loading = true;
+        }
+        symbols
     }
 
     /// Execute the network fetch for the given symbols and clear `loading`.
