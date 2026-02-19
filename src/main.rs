@@ -89,6 +89,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     let news_refresh_interval = Duration::from_secs(300); // 5 minutes
     let mut last_refresh = Instant::now() - refresh_interval; // Force immediate refresh
 
+    let urls = app.prepare_news_refresh();
+    refresh_news_and_draw(terminal, app, &urls).await?;
+
     loop {
         // Auto-refresh quotes silently (skip in News view).
         // Uses refresh_symbols() instead of prepare_refresh() to avoid
