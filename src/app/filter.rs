@@ -1,6 +1,6 @@
-use crate::api::{NewsItem, StockQuote};
+use super::sort::{compare_news_column, compare_portfolio_column, compare_watchlist_column};
 use super::{App, InputMode, SortDirection};
-use super::sort::{compare_watchlist_column, compare_portfolio_column, compare_news_column};
+use crate::api::{NewsItem, StockQuote};
 
 impl App {
     pub fn start_search(&mut self) {
@@ -15,6 +15,9 @@ impl App {
             self.selected_index = 0;
             self.portfolio_selected = 0;
             self.news_selected = 0;
+            *self.watchlist_table_state.offset_mut() = 0;
+            *self.portfolio_table_state.offset_mut() = 0;
+            *self.news_table_state.offset_mut() = 0;
         } else {
             self.clear_filter();
         }
@@ -34,6 +37,9 @@ impl App {
         self.selected_index = 0;
         self.portfolio_selected = 0;
         self.news_selected = 0;
+        *self.watchlist_table_state.offset_mut() = 0;
+        *self.portfolio_table_state.offset_mut() = 0;
+        *self.news_table_state.offset_mut() = 0;
     }
 
     pub fn get_raw_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
@@ -84,7 +90,9 @@ impl App {
 
     pub fn selected_portfolio_symbol(&self) -> Option<String> {
         let filtered = self.get_filtered_portfolio();
-        filtered.get(self.portfolio_selected).map(|(_, h)| h.symbol.clone())
+        filtered
+            .get(self.portfolio_selected)
+            .map(|(_, h)| h.symbol.clone())
     }
 
     pub fn get_filtered_news(&self) -> Vec<&NewsItem> {

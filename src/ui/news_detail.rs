@@ -169,10 +169,15 @@ pub fn draw_news_detail(frame: &mut Frame, app: &mut App) {
         ),
     ]));
 
-    // URL truncated to fit width
+    // URL truncated to fit width (use char_indices to avoid UTF-8 panic)
     if let Some(u) = &url {
-        let display = if u.len() > inner_width {
-            format!("{}…", &u[..inner_width.saturating_sub(1)])
+        let display = if u.chars().count() > inner_width {
+            let end = u
+                .char_indices()
+                .nth(inner_width.saturating_sub(1))
+                .map(|(i, _)| i)
+                .unwrap_or(u.len());
+            format!("{}…", &u[..end])
         } else {
             u.clone()
         };

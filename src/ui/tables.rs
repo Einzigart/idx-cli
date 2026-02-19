@@ -1,12 +1,12 @@
+use super::formatters::*;
 use crate::api::StockQuote;
 use crate::app::App;
 use ratatui::{
+    Frame,
     layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, Table},
-    Frame,
 };
-use super::formatters::*;
 
 pub(super) struct ColumnDef {
     pub name: &'static str,
@@ -15,32 +15,116 @@ pub(super) struct ColumnDef {
 }
 
 const WATCHLIST_COLUMNS: &[ColumnDef] = &[
-    ColumnDef { name: "Symbol",   width: 8,  priority: 1 },
-    ColumnDef { name: "Name",     width: 22, priority: 3 },
-    ColumnDef { name: "Price",    width: 10, priority: 1 },
-    ColumnDef { name: "Change",   width: 10, priority: 2 },
-    ColumnDef { name: "Change %", width: 10, priority: 1 },
-    ColumnDef { name: "Open",     width: 10, priority: 4 },
-    ColumnDef { name: "High",     width: 10, priority: 4 },
-    ColumnDef { name: "Low",      width: 10, priority: 4 },
-    ColumnDef { name: "Volume",   width: 12, priority: 2 },
-    ColumnDef { name: "Value",    width: 14, priority: 3 },
-    ColumnDef { name: "News",     width: 5,  priority: 4 },
+    ColumnDef {
+        name: "Symbol",
+        width: 8,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "Name",
+        width: 22,
+        priority: 3,
+    },
+    ColumnDef {
+        name: "Price",
+        width: 10,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "Change",
+        width: 10,
+        priority: 2,
+    },
+    ColumnDef {
+        name: "Change %",
+        width: 10,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "Open",
+        width: 10,
+        priority: 4,
+    },
+    ColumnDef {
+        name: "High",
+        width: 10,
+        priority: 4,
+    },
+    ColumnDef {
+        name: "Low",
+        width: 10,
+        priority: 4,
+    },
+    ColumnDef {
+        name: "Volume",
+        width: 12,
+        priority: 2,
+    },
+    ColumnDef {
+        name: "Value",
+        width: 14,
+        priority: 3,
+    },
+    ColumnDef {
+        name: "News",
+        width: 5,
+        priority: 4,
+    },
 ];
 /// Number of sortable columns (excludes non-sortable indicator columns like News)
 pub(crate) const WATCHLIST_SORTABLE_COLUMNS: usize = 10;
 
 const PORTFOLIO_COLUMNS: &[ColumnDef] = &[
-    ColumnDef { name: "Symbol",    width: 8,  priority: 1 },
-    ColumnDef { name: "Name",      width: 22, priority: 3 },
-    ColumnDef { name: "Lots",      width: 6,  priority: 2 },
-    ColumnDef { name: "Avg Price", width: 10, priority: 3 },
-    ColumnDef { name: "Last",      width: 10, priority: 1 },
-    ColumnDef { name: "Value",     width: 12, priority: 2 },
-    ColumnDef { name: "Cost",      width: 12, priority: 3 },
-    ColumnDef { name: "P/L",       width: 12, priority: 2 },
-    ColumnDef { name: "P/L %",     width: 10, priority: 1 },
-    ColumnDef { name: "News",      width: 5,  priority: 4 },
+    ColumnDef {
+        name: "Symbol",
+        width: 8,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "Name",
+        width: 22,
+        priority: 3,
+    },
+    ColumnDef {
+        name: "Lots",
+        width: 6,
+        priority: 2,
+    },
+    ColumnDef {
+        name: "Avg Price",
+        width: 10,
+        priority: 3,
+    },
+    ColumnDef {
+        name: "Last",
+        width: 10,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "Value",
+        width: 12,
+        priority: 2,
+    },
+    ColumnDef {
+        name: "Cost",
+        width: 12,
+        priority: 3,
+    },
+    ColumnDef {
+        name: "P/L",
+        width: 12,
+        priority: 2,
+    },
+    ColumnDef {
+        name: "P/L %",
+        width: 10,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "News",
+        width: 5,
+        priority: 4,
+    },
 ];
 /// Number of sortable columns (excludes non-sortable indicator columns like News)
 pub(crate) const PORTFOLIO_SORTABLE_COLUMNS: usize = 9;
@@ -94,14 +178,20 @@ fn watchlist_cell(
         8 => Cell::from(format_volume(q.volume)).style(text_style),
         9 => {
             let value = q.price * q.volume as f64;
-            let style = if is_selected { text_style.fg(Color::Cyan) } else { Style::default() };
+            let style = if is_selected {
+                text_style.fg(Color::Cyan)
+            } else {
+                Style::default()
+            };
             Cell::from(format_value(value)).style(style)
         }
-        10 => if has_news {
-            Cell::from(" * ").style(Style::default().fg(Color::Yellow))
-        } else {
-            Cell::from("")
-        },
+        10 => {
+            if has_news {
+                Cell::from(" * ").style(Style::default().fg(Color::Yellow))
+            } else {
+                Cell::from("")
+            }
+        }
         _ => Cell::from(""),
     }
 }
@@ -121,29 +211,61 @@ fn watchlist_row(
         } else {
             (Color::Red, Color::LightRed)
         };
-        let chg_color = if is_selected { selected_change_color } else { change_color };
-        let text_style = if is_selected { Style::default().fg(Color::White) } else { Style::default() };
-        let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
-        let chg_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
-        let cells: Vec<Cell> = vis.iter()
-            .map(|&col| watchlist_cell(col, q, bold_text, text_style, chg_style, is_selected, has_news))
-            .collect();
-        let row_style = if is_selected { Style::default().bg(Color::Rgb(40, 80, 120)) } else { Style::default() };
-        Row::new(cells).style(row_style)
-    } else {
-        let style = if is_selected {
-            Style::default().bg(Color::Rgb(40, 80, 120)).fg(Color::White)
+        let chg_color = if is_selected {
+            selected_change_color
+        } else {
+            change_color
+        };
+        let text_style = if is_selected {
+            Style::default().fg(Color::White)
         } else {
             Style::default()
         };
-        let cells: Vec<Cell> = vis.iter()
+        let bold_text = if is_selected {
+            text_style.add_modifier(Modifier::BOLD)
+        } else {
+            text_style
+        };
+        let chg_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
+        let cells: Vec<Cell> = vis
+            .iter()
+            .map(|&col| {
+                watchlist_cell(
+                    col,
+                    q,
+                    bold_text,
+                    text_style,
+                    chg_style,
+                    is_selected,
+                    has_news,
+                )
+            })
+            .collect();
+        let row_style = if is_selected {
+            Style::default().bg(Color::Rgb(40, 80, 120))
+        } else {
+            Style::default()
+        };
+        Row::new(cells).style(row_style)
+    } else {
+        let style = if is_selected {
+            Style::default()
+                .bg(Color::Rgb(40, 80, 120))
+                .fg(Color::White)
+        } else {
+            Style::default()
+        };
+        let cells: Vec<Cell> = vis
+            .iter()
             .map(|&col| match col {
                 0 => Cell::from(symbol.to_string()),
-                10 => if has_news {
-                    Cell::from(" * ").style(Style::default().fg(Color::Yellow))
-                } else {
-                    Cell::from("")
-                },
+                10 => {
+                    if has_news {
+                        Cell::from(" * ").style(Style::default().fg(Color::Yellow))
+                    } else {
+                        Cell::from("")
+                    }
+                }
                 _ => Cell::from("-"),
             })
             .collect();
@@ -158,7 +280,8 @@ pub(super) fn sort_header_row(
     sort_dir: &crate::app::SortDirection,
     color: Color,
 ) -> Row<'static> {
-    let cells: Vec<Cell> = vis.iter()
+    let cells: Vec<Cell> = vis
+        .iter()
         .map(|&i| {
             let name = columns[i].name;
             let label = if sort_col == Some(i) {
@@ -212,12 +335,17 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &mut App) {
     let available_width = area.width.saturating_sub(2);
     let vis = visible_columns(WATCHLIST_COLUMNS, available_width);
     let header = sort_header_row(
-        WATCHLIST_COLUMNS, &vis,
-        app.watchlist_sort_column, &app.watchlist_sort_direction, Color::Yellow,
+        WATCHLIST_COLUMNS,
+        &vis,
+        app.watchlist_sort_column,
+        &app.watchlist_sort_direction,
+        Color::Yellow,
     );
 
     let watchlist = app.get_filtered_watchlist();
-    let rows: Vec<Row> = watchlist.iter().enumerate()
+    let rows: Vec<Row> = watchlist
+        .iter()
+        .enumerate()
         .map(|(i, (symbol, quote))| {
             let has_news = app.has_recent_news(symbol);
             watchlist_row(i, symbol, *quote, &vis, app.selected_index, has_news)
@@ -229,8 +357,8 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &mut App) {
         .header(header)
         .block(Block::default().borders(Borders::ALL).title(" Watchlist "));
 
-    let mut state = app.watchlist_table_state.clone();
-    frame.render_stateful_widget(table, area, &mut state);
+    app.watchlist_table_state.select(Some(app.selected_index));
+    frame.render_stateful_widget(table, area, &mut app.watchlist_table_state);
 }
 
 fn portfolio_cell(
@@ -253,11 +381,13 @@ fn portfolio_cell(
         6 => Cell::from(format_value(cost)).style(text_style),
         7 => Cell::from(format_pl(pl)).style(pl_style),
         8 => Cell::from(format!("{:+.2}%", pl_percent)).style(pl_style),
-        9 => if has_news {
-            Cell::from(" * ").style(Style::default().fg(Color::Yellow))
-        } else {
-            Cell::from("")
-        },
+        9 => {
+            if has_news {
+                Cell::from(" * ").style(Style::default().fg(Color::Yellow))
+            } else {
+                Cell::from("")
+            }
+        }
         _ => Cell::from(""),
     }
 }
@@ -276,16 +406,46 @@ fn portfolio_row(
     let (value, cost, pl, pl_percent) = holding.pl_metrics(curr_price);
 
     let pl_color = if pl >= 0.0 { Color::Green } else { Color::Red };
-    let selected_pl_color = if pl >= 0.0 { Color::LightGreen } else { Color::LightRed };
-    let chg_color = if is_selected { selected_pl_color } else { pl_color };
-    let text_style = if is_selected { Style::default().fg(Color::White) } else { Style::default() };
-    let bold_text = if is_selected { text_style.add_modifier(Modifier::BOLD) } else { text_style };
+    let selected_pl_color = if pl >= 0.0 {
+        Color::LightGreen
+    } else {
+        Color::LightRed
+    };
+    let chg_color = if is_selected {
+        selected_pl_color
+    } else {
+        pl_color
+    };
+    let text_style = if is_selected {
+        Style::default().fg(Color::White)
+    } else {
+        Style::default()
+    };
+    let bold_text = if is_selected {
+        text_style.add_modifier(Modifier::BOLD)
+    } else {
+        text_style
+    };
     let pl_style = Style::default().fg(chg_color).add_modifier(Modifier::BOLD);
 
-    let cells: Vec<Cell> = vis.iter()
-        .map(|&col| portfolio_cell(col, holding, short_name, (curr_price, value, cost, pl, pl_percent), (bold_text, text_style, pl_style), has_news))
+    let cells: Vec<Cell> = vis
+        .iter()
+        .map(|&col| {
+            portfolio_cell(
+                col,
+                holding,
+                short_name,
+                (curr_price, value, cost, pl, pl_percent),
+                (bold_text, text_style, pl_style),
+                has_news,
+            )
+        })
         .collect();
-    let row_style = if is_selected { Style::default().bg(Color::Rgb(80, 40, 80)) } else { Style::default() };
+    let row_style = if is_selected {
+        Style::default().bg(Color::Rgb(80, 40, 80))
+    } else {
+        Style::default()
+    };
     (Row::new(cells).style(row_style), value, cost)
 }
 
@@ -294,14 +454,19 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &mut App) {
     let available_width = area.width.saturating_sub(2);
     let vis = visible_columns(PORTFOLIO_COLUMNS, available_width);
     let header = sort_header_row(
-        PORTFOLIO_COLUMNS, &vis,
-        app.portfolio_sort_column, &app.portfolio_sort_direction, Color::Magenta,
+        PORTFOLIO_COLUMNS,
+        &vis,
+        app.portfolio_sort_column,
+        &app.portfolio_sort_direction,
+        Color::Magenta,
     );
 
     let mut total_value = 0.0;
     let mut total_cost = 0.0;
     let filtered = app.get_filtered_portfolio();
-    let rows: Vec<Row> = filtered.iter().enumerate()
+    let rows: Vec<Row> = filtered
+        .iter()
+        .enumerate()
         .map(|(i, (_orig_idx, holding))| {
             let has_news = app.has_recent_news(&holding.symbol);
             let (row, value, cost) = portfolio_row(i, holding, app, &vis, has_news);
@@ -312,23 +477,31 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &mut App) {
         .collect();
 
     let total_pl = total_value - total_cost;
-    let total_pl_pct = if total_cost > 0.0 { (total_pl / total_cost) * 100.0 } else { 0.0 };
-    let total_pl_color = if total_pl >= 0.0 { Color::Green } else { Color::Red };
+    let total_pl_pct = if total_cost > 0.0 {
+        (total_pl / total_cost) * 100.0
+    } else {
+        0.0
+    };
+    let total_pl_color = if total_pl >= 0.0 {
+        Color::Green
+    } else {
+        Color::Red
+    };
     let title = format!(
         " Portfolio | Value: {} | P/L: {} ({:+.2}%) ",
-        format_value(total_value), format_pl(total_pl), total_pl_pct
+        format_value(total_value),
+        format_pl(total_pl),
+        total_pl_pct
     );
 
     let constraints = column_constraints(PORTFOLIO_COLUMNS, &vis, Some(1), available_width);
-    let table = Table::new(rows, constraints)
-        .header(header)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(title)
-                .title_style(Style::default().fg(total_pl_color))
-        );
+    let table = Table::new(rows, constraints).header(header).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .title_style(Style::default().fg(total_pl_color)),
+    );
 
-    let mut state = app.portfolio_table_state.clone();
-    frame.render_stateful_widget(table, area, &mut state);
+    app.portfolio_table_state.select(Some(app.portfolio_selected));
+    frame.render_stateful_widget(table, area, &mut app.portfolio_table_state);
 }

@@ -45,6 +45,7 @@ impl App {
     pub fn next_watchlist(&mut self) {
         self.config.next_watchlist();
         self.selected_index = 0;
+        *self.watchlist_table_state.offset_mut() = 0;
         self.quotes.clear();
         self.watchlist_sort_column = None;
     }
@@ -52,6 +53,7 @@ impl App {
     pub fn prev_watchlist(&mut self) {
         self.config.prev_watchlist();
         self.selected_index = 0;
+        *self.watchlist_table_state.offset_mut() = 0;
         self.quotes.clear();
         self.watchlist_sort_column = None;
     }
@@ -73,6 +75,7 @@ impl App {
             self.config.save()?;
             self.quotes.clear();
             self.selected_index = 0;
+            *self.watchlist_table_state.offset_mut() = 0;
             self.status_message = Some(format!("Created watchlist '{}'", name));
         }
         self.input_mode = InputMode::Normal;
@@ -100,6 +103,7 @@ impl App {
             self.config.save()?;
             self.quotes.clear();
             self.selected_index = 0;
+            *self.watchlist_table_state.offset_mut() = 0;
             self.status_message = Some(format!("Removed watchlist '{}'", name));
         } else {
             self.status_message = Some("Cannot remove the last watchlist".to_string());
