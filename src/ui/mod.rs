@@ -35,7 +35,7 @@ pub(super) fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect 
         .split(popup_layout[1])[1]
 }
 
-pub fn draw(frame: &mut Frame, app: &App) {
+pub fn draw(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -66,6 +66,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
     if app.input_mode == InputMode::PortfolioChart {
         modals::draw_portfolio_chart(frame, app);
+    }
+    if app.input_mode == InputMode::NewsDetail {
+        modals::draw_news_detail(frame, app);
     }
 }
 
@@ -111,8 +114,7 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             let help = match app.view_mode {
                 ViewMode::Watchlist => " [a] Add [d] Del [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help ",
                 ViewMode::Portfolio => " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help ",
-                ViewMode::News => " [r] Refresh [s] Sort [/] Search [p] Watchlist [↑↓] Nav [?] Help ",
-            };
+                ViewMode::News => " [r] Refresh [s] Sort [/] Search [p] Watchlist [Enter] Preview [↑↓] Nav [?] Help ",            };
             if let Some(msg) = &app.status_message {
                 Line::from(vec![
                     Span::styled(msg, Style::default().fg(Color::Yellow)),
@@ -208,6 +210,10 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         )),
         InputMode::PortfolioChart => Line::from(Span::styled(
             " [c/Enter/Esc] Close allocation chart ",
+            Style::default().fg(Color::DarkGray),
+        )),
+        InputMode::NewsDetail => Line::from(Span::styled(
+            " [o] Open in browser  [↑↓] Scroll  [Esc] Close ",
             Style::default().fg(Color::DarkGray),
         )),
     };

@@ -3,7 +3,7 @@ use crate::app::App;
 use ratatui::{
     layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table, TableState},
+    widgets::{Block, Borders, Cell, Row, Table},
     Frame,
 };
 use super::formatters::*;
@@ -207,7 +207,8 @@ pub(super) fn column_constraints(
     }
 }
 
-pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
+pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &mut App) {
+    app.table_viewport_height = area.height.saturating_sub(3) as usize;
     let available_width = area.width.saturating_sub(2);
     let vis = visible_columns(WATCHLIST_COLUMNS, available_width);
     let header = sort_header_row(
@@ -228,8 +229,7 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &App) {
         .header(header)
         .block(Block::default().borders(Borders::ALL).title(" Watchlist "));
 
-    let mut state = TableState::default();
-    state.select(Some(app.selected_index));
+    let mut state = app.watchlist_table_state.clone();
     frame.render_stateful_widget(table, area, &mut state);
 }
 
@@ -289,7 +289,8 @@ fn portfolio_row(
     (Row::new(cells).style(row_style), value, cost)
 }
 
-pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
+pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &mut App) {
+    app.table_viewport_height = area.height.saturating_sub(3) as usize;
     let available_width = area.width.saturating_sub(2);
     let vis = visible_columns(PORTFOLIO_COLUMNS, available_width);
     let header = sort_header_row(
@@ -328,7 +329,6 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &App) {
                 .title_style(Style::default().fg(total_pl_color))
         );
 
-    let mut state = TableState::default();
-    state.select(Some(app.portfolio_selected));
+    let mut state = app.portfolio_table_state.clone();
     frame.render_stateful_widget(table, area, &mut state);
 }

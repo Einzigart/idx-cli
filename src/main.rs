@@ -178,8 +178,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             needs_refresh = true;
                         }
                     }
-                    KeyCode::Up | KeyCode::Char('k') => app.move_up(),
-                    KeyCode::Down | KeyCode::Char('j') => app.move_down(),
+                    KeyCode::Up => app.move_up(),
+                    KeyCode::Down => app.move_down(),
                     KeyCode::Left | KeyCode::Char('h') => {
                         if app.view_mode == ViewMode::Watchlist {
                             app.prev_watchlist();
@@ -212,7 +212,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         match app.view_mode {
                             ViewMode::Watchlist => app.show_stock_detail().await,
                             ViewMode::Portfolio => app.show_portfolio_detail().await,
-                            ViewMode::News => {}
+                            ViewMode::News => app.open_news_detail(),
                         }
                     }
                     KeyCode::Char('s') => app.cycle_sort_column(),
@@ -248,6 +248,28 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                 },
                 InputMode::PortfolioChart => match key.code {
                     KeyCode::Esc | KeyCode::Enter | KeyCode::Char('c') => app.close_portfolio_chart(),
+                    _ => {}
+                },
+                InputMode::NewsDetail => match key.code {
+                    KeyCode::Esc | KeyCode::Char('q') => {
+                        app.input_mode = InputMode::Normal;
+                        app.news_detail_content = None;
+                    }
+                    KeyCode::Down => {
+                        app.news_detail_scroll = app.news_detail_scroll.saturating_add(1);
+                    }
+                    KeyCode::Up => {
+                        app.news_detail_scroll = app.news_detail_scroll.saturating_sub(1);
+                    }
+                    KeyCode::Char('o') => {
+                        let url = app
+                            .get_filtered_news()
+                            .get(app.news_selected)
+                            .and_then(|item| item.url.clone());
+                        if let Some(url) = url {
+                            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+                        }
+                    }
                     _ => {}
                 },
                 // All text-input modes share common Backspace/Esc handling

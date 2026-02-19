@@ -18,8 +18,7 @@ fn publisher_from_url(url: &str) -> String {
         .trim_start_matches("feeds.");
 
     match host {
-        "cnbcindonesia.com" => "CNBC Indonesia".to_string(),
-        "idxchannel.com" => "IDX Channel".to_string(),
+        "cnbcindonesia.com" => "CNBC Indonesia".to_string(),        "idxchannel.com" => "IDX Channel".to_string(),
         "tempo.co" => "Tempo".to_string(),
         "kontan.co.id" => "Kontan".to_string(),
         "feedburner.com" => "Feedburner".to_string(),
@@ -75,11 +74,15 @@ impl NewsClient {
                     .or(entry.updated)
                     .map(|dt| dt.timestamp())
                     .unwrap_or(0);
+                let url = entry.links.into_iter().next().map(|l| l.href);
+                let summary = entry.summary.map(|s| s.content);
 
                 NewsItem {
                     title,
                     publisher: publisher.clone(),
                     published_at,
+                    url,
+                    summary,
                 }
             })
             .collect();

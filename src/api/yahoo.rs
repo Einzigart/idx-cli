@@ -76,6 +76,8 @@ pub struct NewsItem {
     pub title: String,
     pub publisher: String,
     pub published_at: i64, // Unix timestamp
+    pub url: Option<String>,
+    pub summary: Option<String>, // RSS description/summary field
 }
 
 #[derive(Debug, Deserialize)]
