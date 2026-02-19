@@ -90,12 +90,15 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     let mut last_refresh = Instant::now() - refresh_interval; // Force immediate refresh
 
     loop {
-        // Auto-refresh quotes (skip in News view)
+        // Auto-refresh quotes silently (skip in News view).
+        // Uses refresh_symbols() instead of prepare_refresh() to avoid
+        // setting loading=true, which would flicker the clock display.
         if app.view_mode != ViewMode::News
             && last_refresh.elapsed() >= refresh_interval
-            && let Some(symbols) = app.prepare_refresh()
+            && let Some(symbols) = app.refresh_symbols()
         {
-            refresh_and_draw(terminal, app, &symbols, &mut last_refresh).await?;
+            app.execute_refresh(&symbols).await?;
+            last_refresh = Instant::now();
         }
 
         // Auto-refresh news when in News view
