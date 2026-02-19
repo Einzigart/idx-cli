@@ -342,6 +342,7 @@ impl App {
             Some(i) => Some(i + 1),
         };
         *selected = 0;
+        self.reset_current_table_offset();
     }
 
     pub fn toggle_sort_direction(&mut self) {
@@ -355,6 +356,16 @@ impl App {
         };
         dir.toggle();
         *selected = 0;
+        self.reset_current_table_offset();
+    }
+
+    fn reset_current_table_offset(&mut self) {
+        let state = match self.view_mode {
+            ViewMode::Watchlist => &mut self.watchlist_table_state,
+            ViewMode::Portfolio => &mut self.portfolio_table_state,
+            ViewMode::News => &mut self.news_table_state,
+        };
+        *state.offset_mut() = 0;
     }
 
     pub fn cancel_input(&mut self) {

@@ -83,7 +83,7 @@ src/
 | `a` | Add stock | Add holding (step-by-step) | - |
 | `d` | Delete selected | Delete selected | - |
 | `r` | Refresh quotes | Refresh quotes | Refresh feeds |
-| `Enter` | Stock detail popup | Stock detail popup | - |
+| `Enter` | Stock detail popup | Stock detail popup | News detail preview |
 | `j/k` or `↑/↓` | Navigate | Navigate | Navigate |
 | `h/l` or `←/→` | Prev/Next watchlist | - | - |
 | `n` | New watchlist | - | - |

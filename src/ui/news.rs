@@ -1,18 +1,30 @@
+use super::formatters::*;
+use super::tables::{ColumnDef, column_constraints, sort_header_row, visible_columns};
 use crate::api::NewsItem;
 use crate::app::App;
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, Table},
-    Frame,
 };
-use super::formatters::*;
-use super::tables::{ColumnDef, column_constraints, sort_header_row, visible_columns};
 
 const NEWS_COLUMNS: &[ColumnDef] = &[
-    ColumnDef { name: "Time",     width: 10, priority: 1 },
-    ColumnDef { name: "Source",   width: 20, priority: 2 },
-    ColumnDef { name: "Headline", width: 40, priority: 1 },
+    ColumnDef {
+        name: "Time",
+        width: 10,
+        priority: 1,
+    },
+    ColumnDef {
+        name: "Source",
+        width: 20,
+        priority: 2,
+    },
+    ColumnDef {
+        name: "Headline",
+        width: 40,
+        priority: 1,
+    },
 ];
 pub(crate) const NEWS_SORTABLE_COLUMNS: usize = 3;
 
@@ -43,10 +55,7 @@ pub fn draw_news(frame: &mut Frame, area: Rect, app: &mut App) {
     );
 
     let filtered = app.get_filtered_news();
-    let rows: Vec<Row> = filtered
-        .iter()
-        .map(|item| news_row(item, &vis))
-        .collect();
+    let rows: Vec<Row> = filtered.iter().map(|item| news_row(item, &vis)).collect();
 
     let title = if app.rss_loading {
         " News [Loading...] ".to_string()
@@ -65,6 +74,6 @@ pub fn draw_news(frame: &mut Frame, area: Rect, app: &mut App) {
         )
         .block(Block::default().borders(Borders::ALL).title(title));
 
-    let mut state = app.news_table_state.clone();
-    frame.render_stateful_widget(table, area, &mut state);
+    app.news_table_state.select(Some(app.news_selected));
+    frame.render_stateful_widget(table, area, &mut app.news_table_state);
 }
