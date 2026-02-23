@@ -64,8 +64,13 @@ impl App {
     }
 
     pub fn get_filtered_portfolio(&self) -> Vec<(usize, &crate::config::Holding)> {
-        let mut items: Vec<(usize, &crate::config::Holding)> =
-            self.config.portfolio.iter().enumerate().collect();
+        let mut items: Vec<(usize, &crate::config::Holding)> = self
+            .config
+            .current_portfolio()
+            .holdings
+            .iter()
+            .enumerate()
+            .collect();
         if self.search_active {
             items.retain(|(_, h)| h.symbol.to_uppercase().contains(&self.search_query));
         }

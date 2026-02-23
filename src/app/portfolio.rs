@@ -78,7 +78,12 @@ impl App {
 
     pub fn start_portfolio_edit(&mut self) {
         if let Some(symbol) = self.selected_portfolio_symbol()
-            && let Some(holding) = self.config.portfolio.iter().find(|h| h.symbol == symbol)
+            && let Some(holding) = self
+                .config
+                .current_portfolio()
+                .holdings
+                .iter()
+                .find(|h| h.symbol == symbol)
         {
             self.pending_edit_symbol = Some(symbol);
             self.input_buffer = holding.lots.to_string();
@@ -92,8 +97,12 @@ impl App {
                 self.pending_lots = Some(lots);
                 // Pre-fill with current avg_price
                 if let Some(ref symbol) = self.pending_edit_symbol {
-                    if let Some(holding) =
-                        self.config.portfolio.iter().find(|h| &h.symbol == symbol)
+                    if let Some(holding) = self
+                        .config
+                        .current_portfolio()
+                        .holdings
+                        .iter()
+                        .find(|h| &h.symbol == symbol)
                     {
                         self.input_buffer = holding.avg_price.to_string();
                     } else {
@@ -168,7 +177,7 @@ impl App {
     }
 
     pub fn show_portfolio_chart(&mut self) {
-        if !self.config.portfolio.is_empty() {
+        if !self.config.current_portfolio().holdings.is_empty() {
             self.input_mode = InputMode::PortfolioChart;
         }
     }
@@ -181,7 +190,8 @@ impl App {
     pub fn portfolio_allocation(&self) -> Vec<(String, f64, f64)> {
         let mut items: Vec<(String, f64)> = self
             .config
-            .portfolio
+            .current_portfolio()
+            .holdings
             .iter()
             .map(|h| {
                 let price = self.quotes.get(&h.symbol).map(|q| q.price).unwrap_or(0.0);

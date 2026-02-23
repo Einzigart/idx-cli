@@ -153,7 +153,7 @@ impl App {
 
     fn export_portfolio_csv(&self) -> String {
         let mut csv = String::from("Symbol,Lots,Shares,AvgPrice,CurrentPrice,Value,Cost,PL,PL%\n");
-        for holding in &self.config.portfolio {
+        for holding in &self.config.current_portfolio().holdings {
             let curr_price = self
                 .quotes
                 .get(&holding.symbol)
@@ -181,7 +181,8 @@ impl App {
     fn export_portfolio_json(&self) -> String {
         let data: Vec<serde_json::Value> = self
             .config
-            .portfolio
+            .current_portfolio()
+            .holdings
             .iter()
             .map(|holding| {
                 let curr_price = self

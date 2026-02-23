@@ -237,4 +237,3 @@ pub fn draw_help(frame: &mut Frame) {
         inner_area,
     );
 }
-

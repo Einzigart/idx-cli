@@ -502,6 +502,7 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &mut App) {
             .title_style(Style::default().fg(total_pl_color)),
     );
 
-    app.portfolio_table_state.select(Some(app.portfolio_selected));
+    app.portfolio_table_state
+        .select(Some(app.portfolio_selected));
     frame.render_stateful_widget(table, area, &mut app.portfolio_table_state);
 }
