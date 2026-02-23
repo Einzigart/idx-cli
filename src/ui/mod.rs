@@ -109,11 +109,15 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             Span::styled("IHSG ", Style::default().fg(Color::White)),
             Span::styled(
                 format_price(q.price),
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 format!(" {:+.2}%", q.change_percent),
-                Style::default().fg(change_color).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(change_color)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::raw(" "),
         ]
@@ -156,8 +160,8 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     all_spans.push(Span::raw(" ".repeat(spacer_width)));
     all_spans.extend(right_spans);
 
-    let header = Paragraph::new(Line::from(all_spans))
-        .block(Block::default().borders(Borders::ALL));
+    let header =
+        Paragraph::new(Line::from(all_spans)).block(Block::default().borders(Borders::ALL));
 
     frame.render_widget(header, area);
 }

@@ -176,32 +176,28 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     }
                     KeyCode::Up => app.move_up(),
                     KeyCode::Down => app.move_down(),
-                    KeyCode::Left | KeyCode::Char('h') => {
-                        match app.view_mode {
-                            ViewMode::Watchlist => {
-                                app.prev_watchlist();
-                                needs_refresh = true;
-                            }
-                            ViewMode::Portfolio => {
-                                app.prev_portfolio();
-                                needs_refresh = true;
-                            }
-                            _ => {}
+                    KeyCode::Left | KeyCode::Char('h') => match app.view_mode {
+                        ViewMode::Watchlist => {
+                            app.prev_watchlist();
+                            needs_refresh = true;
                         }
-                    }
-                    KeyCode::Right | KeyCode::Char('l') => {
-                        match app.view_mode {
-                            ViewMode::Watchlist => {
-                                app.next_watchlist();
-                                needs_refresh = true;
-                            }
-                            ViewMode::Portfolio => {
-                                app.next_portfolio();
-                                needs_refresh = true;
-                            }
-                            _ => {}
+                        ViewMode::Portfolio => {
+                            app.prev_portfolio();
+                            needs_refresh = true;
                         }
-                    }
+                        _ => {}
+                    },
+                    KeyCode::Right | KeyCode::Char('l') => match app.view_mode {
+                        ViewMode::Watchlist => {
+                            app.next_watchlist();
+                            needs_refresh = true;
+                        }
+                        ViewMode::Portfolio => {
+                            app.next_portfolio();
+                            needs_refresh = true;
+                        }
+                        _ => {}
+                    },
                     KeyCode::Char('n') => match app.view_mode {
                         ViewMode::Watchlist => app.start_watchlist_add(),
                         ViewMode::Portfolio => app.start_portfolio_new(),
@@ -295,9 +291,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         InputMode::PortfolioEditLots | InputMode::PortfolioEditPrice => {
                             app.cancel_portfolio_edit()
                         }
-                        InputMode::PortfolioNew | InputMode::PortfolioRename => {
-                            app.cancel_input()
-                        }
+                        InputMode::PortfolioNew | InputMode::PortfolioRename => app.cancel_input(),
                         InputMode::Search => app.cancel_search(),
                         _ => app.cancel_input(),
                     },
@@ -349,8 +343,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => {
                                 c.is_ascii_digit() || c == '.'
                             }
-                            InputMode::WatchlistAdd | InputMode::WatchlistRename
-                            | InputMode::PortfolioNew | InputMode::PortfolioRename => {
+                            InputMode::WatchlistAdd
+                            | InputMode::WatchlistRename
+                            | InputMode::PortfolioNew
+                            | InputMode::PortfolioRename => {
                                 c.is_alphanumeric() || c == ' ' || c == '-' || c == '_'
                             }
                             InputMode::Search => true,
