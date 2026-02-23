@@ -140,8 +140,14 @@ struct QuoteResult {
 
 impl From<QuoteResult> for StockQuote {
     fn from(q: QuoteResult) -> Self {
-        // Remove .JK suffix for display
-        let display_symbol = q.symbol.trim_end_matches(".JK").to_string();
+        let display_symbol = if q.symbol.starts_with('^') {
+            match q.symbol.as_str() {
+                "^JKSE" => "IHSG".to_string(),
+                other => other.trim_start_matches('^').to_string(),
+            }
+        } else {
+            q.symbol.trim_end_matches(".JK").to_string()
+        };
 
         StockQuote {
             symbol: display_symbol,
@@ -244,7 +250,7 @@ impl YahooClient {
     /// Convert IDX stock code to Yahoo Finance symbol (add .JK suffix)
     fn to_yahoo_symbol(code: &str) -> String {
         let code = code.to_uppercase();
-        if code.ends_with(".JK") {
+        if code.starts_with('^') || code.ends_with(".JK") {
             code
         } else {
             format!("{}.JK", code)
