@@ -176,6 +176,84 @@ impl App {
         }
     }
 
+    pub fn portfolio_indicator(&self) -> String {
+        format!(
+            "{} ({}/{})",
+            self.config.current_portfolio().name,
+            self.config.active_portfolio + 1,
+            self.config.portfolios.len()
+        )
+    }
+
+    pub fn next_portfolio(&mut self) {
+        self.config.next_portfolio();
+        self.portfolio_selected = 0;
+        *self.portfolio_table_state.offset_mut() = 0;
+        self.quotes.clear();
+        self.portfolio_sort_column = None;
+    }
+
+    pub fn prev_portfolio(&mut self) {
+        self.config.prev_portfolio();
+        self.portfolio_selected = 0;
+        *self.portfolio_table_state.offset_mut() = 0;
+        self.quotes.clear();
+        self.portfolio_sort_column = None;
+    }
+
+    pub fn start_portfolio_new(&mut self) {
+        self.input_mode = InputMode::PortfolioNew;
+        self.input_buffer.clear();
+    }
+
+    pub fn start_portfolio_rename(&mut self) {
+        self.input_mode = InputMode::PortfolioRename;
+        self.input_buffer = self.config.current_portfolio().name.clone();
+    }
+
+    pub fn confirm_portfolio_new(&mut self) -> Result<()> {
+        if !self.input_buffer.is_empty() {
+            let name = self.input_buffer.trim().to_string();
+            self.config.add_portfolio(&name);
+            self.config.save()?;
+            self.quotes.clear();
+            self.portfolio_selected = 0;
+            *self.portfolio_table_state.offset_mut() = 0;
+            self.status_message = Some(format!("Created portfolio '{}'", name));
+        }
+        self.input_mode = InputMode::Normal;
+        self.input_buffer.clear();
+        Ok(())
+    }
+
+    pub fn confirm_portfolio_rename(&mut self) -> Result<()> {
+        if !self.input_buffer.is_empty() {
+            let new_name = self.input_buffer.trim().to_string();
+            let old_name = self.config.current_portfolio().name.clone();
+            self.config.rename_portfolio(&new_name);
+            self.config.save()?;
+            self.status_message = Some(format!("Renamed '{}' to '{}'", old_name, new_name));
+        }
+        self.input_mode = InputMode::Normal;
+        self.input_buffer.clear();
+        Ok(())
+    }
+
+    pub fn remove_current_portfolio(&mut self) -> Result<()> {
+        if self.config.portfolios.len() > 1 {
+            let name = self.config.current_portfolio().name.clone();
+            self.config.remove_portfolio();
+            self.config.save()?;
+            self.quotes.clear();
+            self.portfolio_selected = 0;
+            *self.portfolio_table_state.offset_mut() = 0;
+            self.status_message = Some(format!("Removed portfolio '{}'", name));
+        } else {
+            self.status_message = Some("Cannot remove the last portfolio".to_string());
+        }
+        Ok(())
+    }
+
     pub fn show_portfolio_chart(&mut self) {
         if !self.config.current_portfolio().holdings.is_empty() {
             self.input_mode = InputMode::PortfolioChart;

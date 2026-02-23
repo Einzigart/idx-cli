@@ -8,6 +8,8 @@ mod tables;
 pub(crate) use news::NEWS_SORTABLE_COLUMNS;
 pub(crate) use tables::{PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 
+use formatters::format_price;
+
 use crate::app::{App, InputMode, ViewMode};
 use ratatui::{
     Frame,
@@ -96,7 +98,35 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         Span::raw("")
     };
 
-    let header = Paragraph::new(Line::from(vec![
+    // Build IHSG display
+    let ihsg_spans: Vec<Span> = if let Some(q) = app.get_ihsg_quote() {
+        let change_color = if q.change_percent >= 0.0 {
+            Color::Green
+        } else {
+            Color::Red
+        };
+        vec![
+            Span::styled("IHSG ", Style::default().fg(Color::White)),
+            Span::styled(
+                format_price(q.price),
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!(" {:+.2}%", q.change_percent),
+                Style::default().fg(change_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(" "),
+        ]
+    } else {
+        vec![
+            Span::styled("IHSG ", Style::default().fg(Color::DarkGray)),
+            Span::styled("---", Style::default().fg(Color::DarkGray)),
+            Span::raw(" "),
+        ]
+    };
+
+    // Left side: title + view indicator + filter
+    let left_spans = vec![
         Span::styled(
             " IDX Stock Tracker ",
             Style::default()
@@ -109,10 +139,25 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             Style::default().fg(view_color).add_modifier(Modifier::BOLD),
         ),
         filter_span,
-        Span::styled(" ", Style::default()),
-        Span::styled(status, Style::default().fg(Color::DarkGray)),
-    ]))
-    .block(Block::default().borders(Borders::ALL));
+    ];
+
+    // Right side: IHSG + clock
+    let mut right_spans = ihsg_spans;
+    right_spans.push(Span::styled(status, Style::default().fg(Color::DarkGray)));
+    right_spans.push(Span::raw(" "));
+
+    // Calculate widths to insert spacer
+    let left_width: usize = left_spans.iter().map(|s| s.width()).sum();
+    let right_width: usize = right_spans.iter().map(|s| s.width()).sum();
+    let inner_width = area.width.saturating_sub(2) as usize; // -2 for borders
+    let spacer_width = inner_width.saturating_sub(left_width + right_width);
+
+    let mut all_spans = left_spans;
+    all_spans.push(Span::raw(" ".repeat(spacer_width)));
+    all_spans.extend(right_spans);
+
+    let header = Paragraph::new(Line::from(all_spans))
+        .block(Block::default().borders(Borders::ALL));
 
     frame.render_widget(header, area);
 }
@@ -238,6 +283,18 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             " [o] Open in browser  [↑↓] Scroll  [Esc] Close ",
             Style::default().fg(Color::DarkGray),
         )),
+        InputMode::PortfolioNew => Line::from(vec![
+            Span::raw(" New portfolio name: "),
+            Span::styled(&app.input_buffer, Style::default().fg(Color::Green)),
+            Span::styled("█", Style::default().fg(Color::Green)),
+            Span::raw(" | [Enter] Confirm | [Esc] Cancel"),
+        ]),
+        InputMode::PortfolioRename => Line::from(vec![
+            Span::raw(" Rename portfolio: "),
+            Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+            Span::styled("█", Style::default().fg(Color::Yellow)),
+            Span::raw(" | [Enter] Confirm | [Esc] Cancel"),
+        ]),
     };
 
     let footer = Paragraph::new(content).block(Block::default().borders(Borders::ALL));
