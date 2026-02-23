@@ -85,7 +85,7 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     let (view_indicator, view_color) = match app.view_mode {
         ViewMode::Watchlist => (app.watchlist_indicator(), Color::Yellow),
-        ViewMode::Portfolio => ("Portfolio".to_string(), Color::Magenta),
+        ViewMode::Portfolio => (app.portfolio_indicator(), Color::Magenta),
         ViewMode::News => ("News".to_string(), Color::Blue),
     };
 
@@ -170,7 +170,7 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                     " [a] Add [d] Del [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help "
                 }
                 ViewMode::Portfolio => {
-                    " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [?] Help "
+                    " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [←→] Port [?] Help "
                 }
                 ViewMode::News => {
                     " [r] Refresh [s] Sort [/] Search [p] Watchlist [Enter] Preview [↑↓] Nav [?] Help "
