@@ -39,5 +39,10 @@ jobs:
       - name: Run tests
         run: cargo test
 
+      - name: Audit dependencies
+        run: |
+          cargo install cargo-audit
+          cargo audit
+
       - name: Build release
         run: cargo build --release
