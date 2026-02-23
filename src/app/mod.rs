@@ -51,6 +51,8 @@ pub enum InputMode {
     PortfolioEditLots,
     PortfolioEditPrice,
     NewsDetail,
+    PortfolioNew,
+    PortfolioRename,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
