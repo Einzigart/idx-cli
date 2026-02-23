@@ -52,20 +52,38 @@ impl Holding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Portfolio {
+    pub name: String,
+    pub holdings: Vec<Holding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub watchlists: Vec<Watchlist>,
     #[serde(default)]
     pub active_watchlist: usize,
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval_secs: u64,
+    /// Old format field — consumed during deserialization for migration
+    #[serde(default, skip_serializing)]
+    portfolio: Vec<Holding>,
+    #[serde(default = "default_portfolios")]
+    pub portfolios: Vec<Portfolio>,
     #[serde(default)]
-    pub portfolio: Vec<Holding>,
+    pub active_portfolio: usize,
     #[serde(default = "default_news_sources")]
     pub news_sources: Vec<String>,
 }
 
 fn default_refresh_interval() -> u64 {
     1
+}
+
+fn default_portfolios() -> Vec<Portfolio> {
+    vec![Portfolio {
+        name: "Default".to_string(),
+        holdings: Vec::new(),
+    }]
 }
 
 fn default_news_sources() -> Vec<String> {
@@ -107,6 +125,11 @@ impl Default for Config {
             active_watchlist: 0,
             refresh_interval_secs: default_refresh_interval(),
             portfolio: Vec::new(),
+            portfolios: vec![Portfolio {
+                name: "Default".to_string(),
+                holdings: Vec::new(),
+            }],
+            active_portfolio: 0,
             news_sources: default_news_sources(),
         }
     }
@@ -142,6 +165,8 @@ impl Config {
         if config.active_watchlist >= config.watchlists.len() {
             config.active_watchlist = 0;
         }
+        // Migrate old flat portfolio → portfolios
+        config.migrate_portfolio();
         if config.migrate_news_sources() {
             let _ = config.save();
         }
@@ -215,11 +240,61 @@ impl Config {
         self.current_watchlist_mut().name = new_name.to_string();
     }
 
+    pub fn current_portfolio(&self) -> &Portfolio {
+        &self.portfolios[self.active_portfolio]
+    }
+
+    pub fn current_portfolio_mut(&mut self) -> &mut Portfolio {
+        &mut self.portfolios[self.active_portfolio]
+    }
+
+    pub fn next_portfolio(&mut self) {
+        if !self.portfolios.is_empty() {
+            self.active_portfolio = (self.active_portfolio + 1) % self.portfolios.len();
+        }
+    }
+
+    pub fn prev_portfolio(&mut self) {
+        if !self.portfolios.is_empty() {
+            self.active_portfolio = if self.active_portfolio == 0 {
+                self.portfolios.len() - 1
+            } else {
+                self.active_portfolio - 1
+            };
+        }
+    }
+
+    pub fn add_portfolio(&mut self, name: &str) {
+        self.portfolios.push(Portfolio {
+            name: name.to_string(),
+            holdings: Vec::new(),
+        });
+        self.active_portfolio = self.portfolios.len() - 1;
+    }
+
+    pub fn remove_portfolio(&mut self) {
+        if self.portfolios.len() > 1 {
+            self.portfolios.remove(self.active_portfolio);
+            if self.active_portfolio >= self.portfolios.len() {
+                self.active_portfolio = self.portfolios.len() - 1;
+            }
+        }
+    }
+
+    pub fn rename_portfolio(&mut self, new_name: &str) {
+        self.current_portfolio_mut().name = new_name.to_string();
+    }
+
     /// Add a new holding or merge into an existing one.
     pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) -> bool {
         let symbol = symbol.to_uppercase();
         // Check if holding exists, update it
-        if let Some(holding) = self.portfolio.iter_mut().find(|h| h.symbol == symbol) {
+        if let Some(holding) = self
+            .current_portfolio_mut()
+            .holdings
+            .iter_mut()
+            .find(|h| h.symbol == symbol)
+        {
             let total_lots = match holding.lots.checked_add(lots) {
                 Some(t) => t,
                 None => return false,
@@ -228,7 +303,7 @@ impl Config {
             holding.avg_price = total_cost / (total_lots as u64 * 100) as f64;
             holding.lots = total_lots;
         } else {
-            self.portfolio.push(Holding {
+            self.current_portfolio_mut().holdings.push(Holding {
                 symbol,
                 lots,
                 avg_price,
@@ -239,18 +314,29 @@ impl Config {
 
     pub fn remove_holding(&mut self, symbol: &str) {
         let symbol = symbol.to_uppercase();
-        self.portfolio.retain(|h| h.symbol != symbol);
+        self.current_portfolio_mut()
+            .holdings
+            .retain(|h| h.symbol != symbol);
     }
 
     pub fn update_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) {
-        if let Some(holding) = self.portfolio.iter_mut().find(|h| h.symbol == symbol) {
+        if let Some(holding) = self
+            .current_portfolio_mut()
+            .holdings
+            .iter_mut()
+            .find(|h| h.symbol == symbol)
+        {
             holding.lots = lots;
             holding.avg_price = avg_price;
         }
     }
 
     pub fn portfolio_symbols(&self) -> Vec<String> {
-        self.portfolio.iter().map(|h| h.symbol.clone()).collect()
+        self.current_portfolio()
+            .holdings
+            .iter()
+            .map(|h| h.symbol.clone())
+            .collect()
     }
 
     #[cfg(test)]
@@ -260,7 +346,30 @@ impl Config {
             active_watchlist: 0,
             refresh_interval_secs: 1,
             portfolio: Vec::new(),
+            portfolios: default_portfolios(),
+            active_portfolio: 0,
             news_sources: Vec::new(),
+        }
+    }
+
+    /// Migrate old flat `portfolio` field into `portfolios` groups.
+    fn migrate_portfolio(&mut self) {
+        if !self.portfolio.is_empty() {
+            if self.portfolios.len() == 1 && self.portfolios[0].holdings.is_empty() {
+                self.portfolios[0].holdings = std::mem::take(&mut self.portfolio);
+            } else {
+                self.portfolios.push(Portfolio {
+                    name: "Imported".to_string(),
+                    holdings: std::mem::take(&mut self.portfolio),
+                });
+            }
+            let _ = self.save();
+        }
+        if self.portfolios.is_empty() {
+            self.portfolios = default_portfolios();
+        }
+        if self.active_portfolio >= self.portfolios.len() {
+            self.active_portfolio = 0;
         }
     }
 
@@ -293,7 +402,8 @@ mod tests {
         assert!(!ok, "add_holding should return false on u32 overflow");
         // Original holding should be unchanged
         let h = config
-            .portfolio
+            .current_portfolio()
+            .holdings
             .iter()
             .find(|h| h.symbol == "BBCA")
             .unwrap();
@@ -308,7 +418,8 @@ mod tests {
         let ok = config.add_holding("BBCA", 100, 9000.0);
         assert!(ok);
         let h = config
-            .portfolio
+            .current_portfolio()
+            .holdings
             .iter()
             .find(|h| h.symbol == "BBCA")
             .unwrap();
@@ -322,8 +433,69 @@ mod tests {
         let mut config = Config::test_config();
         let ok = config.add_holding("TLKM", 50, 3500.0);
         assert!(ok);
-        assert_eq!(config.portfolio.len(), 1);
-        assert_eq!(config.portfolio[0].symbol, "TLKM");
-        assert_eq!(config.portfolio[0].lots, 50);
+        assert_eq!(config.current_portfolio().holdings.len(), 1);
+        assert_eq!(config.current_portfolio().holdings[0].symbol, "TLKM");
+        assert_eq!(config.current_portfolio().holdings[0].lots, 50);
+    }
+
+    #[test]
+    fn migrate_flat_portfolio_to_portfolios() {
+        let json = r#"{
+            "watchlists": [{"name": "Default", "symbols": ["BBCA"]}],
+            "active_watchlist": 0,
+            "portfolio": [
+                {"symbol": "BBCA", "lots": 100, "avg_price": 8000.0},
+                {"symbol": "TLKM", "lots": 50, "avg_price": 3500.0}
+            ]
+        }"#;
+        let mut config: Config = serde_json::from_str(json).unwrap();
+        config.migrate_portfolio();
+        assert_eq!(config.portfolios.len(), 1);
+        assert_eq!(config.portfolios[0].name, "Default");
+        assert_eq!(config.portfolios[0].holdings.len(), 2);
+        assert_eq!(config.portfolios[0].holdings[0].symbol, "BBCA");
+    }
+
+    #[test]
+    fn new_format_loads_directly() {
+        let json = r#"{
+            "watchlists": [{"name": "Default", "symbols": ["BBCA"]}],
+            "active_watchlist": 0,
+            "portfolios": [
+                {"name": "Growth", "holdings": [{"symbol": "BBCA", "lots": 100, "avg_price": 8000.0}]},
+                {"name": "Dividend", "holdings": [{"symbol": "TLKM", "lots": 50, "avg_price": 3500.0}]}
+            ],
+            "active_portfolio": 1
+        }"#;
+        let config: Config = serde_json::from_str(json).unwrap();
+        assert_eq!(config.portfolios.len(), 2);
+        assert_eq!(config.active_portfolio, 1);
+        assert_eq!(config.portfolios[1].name, "Dividend");
+    }
+
+    #[test]
+    fn portfolio_crud_operations() {
+        let mut config = Config::test_config();
+        assert_eq!(config.portfolios.len(), 1);
+
+        config.add_portfolio("Growth");
+        assert_eq!(config.portfolios.len(), 2);
+        assert_eq!(config.active_portfolio, 1);
+        assert_eq!(config.current_portfolio().name, "Growth");
+
+        config.rename_portfolio("Aggressive Growth");
+        assert_eq!(config.current_portfolio().name, "Aggressive Growth");
+
+        config.next_portfolio();
+        assert_eq!(config.active_portfolio, 0);
+        config.prev_portfolio();
+        assert_eq!(config.active_portfolio, 1);
+
+        config.remove_portfolio();
+        assert_eq!(config.portfolios.len(), 1);
+        assert_eq!(config.active_portfolio, 0);
+
+        config.remove_portfolio();
+        assert_eq!(config.portfolios.len(), 1);
     }
 }
