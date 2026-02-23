@@ -4,9 +4,10 @@ mod news;
 mod portfolio;
 mod sort;
 mod watchlist;
+mod alerts;
 
 use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
-use crate::config::Config;
+use crate::config::{Config, AlertType};
 use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 use anyhow::Result;
 use ratatui::widgets::TableState;
@@ -56,6 +57,9 @@ pub enum InputMode {
     NewsDetail,
     PortfolioNew,
     PortfolioRename,
+    AlertList,
+    AlertAddType,
+    AlertAddValue,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,6 +128,9 @@ pub struct App {
     pub pending_symbol: Option<String>,
     pub pending_lots: Option<u32>,
     pub pending_edit_symbol: Option<String>,
+    pub alert_symbol: Option<String>,
+    pub alert_list_selected: usize,
+    pub pending_alert_type: AlertType,
     pub watchlist_sort_column: Option<usize>,
     pub watchlist_sort_direction: SortDirection,
     pub portfolio_sort_column: Option<usize>,
@@ -169,6 +176,9 @@ impl App {
             pending_symbol: None,
             pending_lots: None,
             pending_edit_symbol: None,
+            alert_symbol: None,
+            alert_list_selected: 0,
+            pending_alert_type: AlertType::Above,
             watchlist_sort_column: None,
             watchlist_sort_direction: SortDirection::Ascending,
             portfolio_sort_column: None,
@@ -515,6 +525,9 @@ mod tests {
             pending_symbol: None,
             pending_lots: None,
             pending_edit_symbol: None,
+            alert_symbol: None,
+            alert_list_selected: 0,
+            pending_alert_type: AlertType::Above,
             watchlist_sort_column: None,
             watchlist_sort_direction: SortDirection::Ascending,
             portfolio_sort_column: None,

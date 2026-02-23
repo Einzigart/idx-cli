@@ -231,6 +231,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             app.show_portfolio_chart();
                         }
                     }
+                    KeyCode::Char('A') => match app.view_mode {
+                        ViewMode::Watchlist | ViewMode::Portfolio => app.open_alert_modal(),
+                        ViewMode::News => {}
+                    },
                     _ => {}
                 },
                 InputMode::StockDetail => match key.code {
@@ -282,6 +286,21 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     }
                     _ => {}
                 },
+                InputMode::AlertList => match key.code {
+                    KeyCode::Esc => app.close_alert_modal(),
+                    KeyCode::Up | KeyCode::Char('k') => app.alert_list_up(),
+                    KeyCode::Down | KeyCode::Char('j') => app.alert_list_down(),
+                    KeyCode::Enter => app.alert_list_confirm(),
+                    KeyCode::Char('d') => app.alert_list_delete()?,
+                    _ => {}
+                },
+                InputMode::AlertAddType => match key.code {
+                    KeyCode::Esc => app.cancel_alert_add(),
+                    KeyCode::Left | KeyCode::Char('h')
+                    | KeyCode::Right | KeyCode::Char('l') => app.alert_type_cycle(),
+                    KeyCode::Enter => app.alert_type_confirm(),
+                    _ => {}
+                },
                 // All text-input modes share common Backspace/Esc handling
                 _ => match key.code {
                     KeyCode::Esc => match app.input_mode {
@@ -293,6 +312,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         }
                         InputMode::PortfolioNew | InputMode::PortfolioRename => app.cancel_input(),
                         InputMode::Search => app.cancel_search(),
+                        InputMode::AlertAddValue => app.cancel_alert_add(),
                         _ => app.cancel_input(),
                     },
                     KeyCode::Enter => match app.input_mode {
@@ -327,6 +347,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             needs_refresh = true;
                         }
                         InputMode::Search => app.confirm_search(),
+                        InputMode::AlertAddValue => app.alert_value_confirm()?,
                         _ => {}
                     },
                     KeyCode::Backspace => {
@@ -341,6 +362,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 c.is_ascii_digit()
                             }
                             InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => {
+                                c.is_ascii_digit() || c == '.'
+                            }
+                            InputMode::AlertAddValue => {
                                 c.is_ascii_digit() || c == '.'
                             }
                             InputMode::WatchlistAdd

@@ -73,6 +73,12 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     if app.input_mode == InputMode::NewsDetail {
         news_detail::draw_news_detail(frame, app);
     }
+    if matches!(
+        app.input_mode,
+        InputMode::AlertList | InputMode::AlertAddType | InputMode::AlertAddValue
+    ) {
+        modals::draw_alert_modal(frame, app);
+    }
 }
 
 fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
@@ -171,10 +177,10 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         InputMode::Normal => {
             let help = match app.view_mode {
                 ViewMode::Watchlist => {
-                    " [a] Add [d] Del [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help "
+                    " [a] Add [d] Del [A] Alerts [e] Export [r] Refresh [s] Sort [p] Portfolio [Enter] Detail [↑↓] Nav [←→] WL [?] Help "
                 }
                 ViewMode::Portfolio => {
-                    " [a] Add [e] Edit [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [←→] Port [?] Help "
+                    " [a] Add [e] Edit [A] Alerts [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [←→] Port [?] Help "
                 }
                 ViewMode::News => {
                     " [r] Refresh [s] Sort [/] Search [p] Watchlist [Enter] Preview [↑↓] Nav [?] Help "
@@ -298,6 +304,20 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
             Span::styled("█", Style::default().fg(Color::Yellow)),
             Span::raw(" | [Enter] Confirm | [Esc] Cancel"),
+        ]),
+        InputMode::AlertList => Line::from(Span::styled(
+            " [Enter] Toggle/Add  [d] Delete  [↑↓/jk] Nav  [Esc] Close ",
+            Style::default().fg(Color::DarkGray),
+        )),
+        InputMode::AlertAddType => Line::from(Span::styled(
+            " [h/l or ←→] Cycle type  [Enter] Confirm  [Esc] Back ",
+            Style::default().fg(Color::DarkGray),
+        )),
+        InputMode::AlertAddValue => Line::from(vec![
+            Span::raw(" Target value: "),
+            Span::styled(&app.input_buffer, Style::default().fg(Color::Red)),
+            Span::styled("█", Style::default().fg(Color::Red)),
+            Span::raw(" | [Enter] Add | [Esc] Back"),
         ]),
     };
 

@@ -51,6 +51,90 @@ impl Holding {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AlertType {
+    Above,
+    Below,
+    PercentGain,
+    PercentLoss,
+}
+
+impl AlertType {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AlertType::Above => "Above",
+            AlertType::Below => "Below",
+            AlertType::PercentGain => "% Gain",
+            AlertType::PercentLoss => "% Loss",
+        }
+    }
+
+    pub fn next(&self) -> AlertType {
+        match self {
+            AlertType::Above => AlertType::Below,
+            AlertType::Below => AlertType::PercentGain,
+            AlertType::PercentGain => AlertType::PercentLoss,
+            AlertType::PercentLoss => AlertType::Above,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Alert {
+    pub id: String,
+    pub symbol: String,
+    pub alert_type: AlertType,
+    pub target_value: f64,
+    pub enabled: bool,
+    pub last_triggered: Option<u64>,
+    pub cooldown_seconds: u32,
+}
+
+impl Alert {
+    pub fn new(symbol: &str, alert_type: AlertType, target_value: f64) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        Self {
+            id: format!("{}_{}", ts, symbol),
+            symbol: symbol.to_uppercase(),
+            alert_type,
+            target_value,
+            enabled: true,
+            last_triggered: None,
+            cooldown_seconds: 300,
+        }
+    }
+
+    pub fn should_trigger(&self, price: f64, change_pct: f64) -> bool {
+        if !self.enabled {
+            return false;
+        }
+        if let Some(last) = self.last_triggered {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            if now.saturating_sub(last) < self.cooldown_seconds as u64 {
+                return false;
+            }
+        }
+        match self.alert_type {
+            AlertType::Above => price >= self.target_value,
+            AlertType::Below => price <= self.target_value,
+            AlertType::PercentGain => change_pct >= self.target_value,
+            AlertType::PercentLoss => change_pct <= -self.target_value,
+        }
+    }
+}
+
+fn default_alerts() -> Vec<Alert> {
+    Vec::new()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Portfolio {
     pub name: String,
@@ -73,6 +157,8 @@ pub struct Config {
     pub active_portfolio: usize,
     #[serde(default = "default_news_sources")]
     pub news_sources: Vec<String>,
+    #[serde(default = "default_alerts")]
+    pub alerts: Vec<Alert>,
 }
 
 fn default_refresh_interval() -> u64 {
@@ -131,6 +217,7 @@ impl Default for Config {
             }],
             active_portfolio: 0,
             news_sources: default_news_sources(),
+            alerts: default_alerts(),
         }
     }
 }
@@ -285,6 +372,41 @@ impl Config {
         self.current_portfolio_mut().name = new_name.to_string();
     }
 
+    pub fn alerts_for_symbol(&self, symbol: &str) -> Vec<&Alert> {
+        let sym = symbol.to_uppercase();
+        self.alerts.iter().filter(|a| a.symbol == sym).collect()
+    }
+
+    pub fn add_alert(&mut self, alert: Alert) {
+        self.alerts.push(alert);
+    }
+
+    pub fn remove_alert(&mut self, id: &str) {
+        self.alerts.retain(|a| a.id != id);
+    }
+
+    pub fn toggle_alert(&mut self, id: &str) {
+        if let Some(a) = self.alerts.iter_mut().find(|a| a.id == id) {
+            a.enabled = !a.enabled;
+        }
+    }
+
+    pub fn mark_triggered(&mut self, id: &str) {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        if let Some(a) = self.alerts.iter_mut().find(|a| a.id == id) {
+            a.last_triggered = Some(now);
+        }
+    }
+
+    pub fn has_active_alerts(&self, symbol: &str) -> bool {
+        let sym = symbol.to_uppercase();
+        self.alerts.iter().any(|a| a.symbol == sym && a.enabled)
+    }
+
     /// Add a new holding or merge into an existing one.
     pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) -> bool {
         let symbol = symbol.to_uppercase();
@@ -349,6 +471,7 @@ impl Config {
             portfolios: default_portfolios(),
             active_portfolio: 0,
             news_sources: Vec::new(),
+            alerts: Vec::new(),
         }
     }
 
@@ -497,5 +620,102 @@ mod tests {
 
         config.remove_portfolio();
         assert_eq!(config.portfolios.len(), 1);
+    }
+
+    #[test]
+    fn alert_above_fires_when_price_meets_threshold() {
+        let alert = Alert::new("BBCA", AlertType::Above, 8000.0);
+        assert!(alert.should_trigger(8000.0, 0.0));
+        assert!(alert.should_trigger(8001.0, 0.0));
+        assert!(!alert.should_trigger(7999.0, 0.0));
+    }
+
+    #[test]
+    fn alert_below_fires_when_price_meets_threshold() {
+        let alert = Alert::new("BBCA", AlertType::Below, 8000.0);
+        assert!(alert.should_trigger(8000.0, 0.0));
+        assert!(alert.should_trigger(7999.0, 0.0));
+        assert!(!alert.should_trigger(8001.0, 0.0));
+    }
+
+    #[test]
+    fn alert_pct_gain_fires_when_change_meets_threshold() {
+        let alert = Alert::new("BBCA", AlertType::PercentGain, 5.0);
+        assert!(alert.should_trigger(8000.0, 5.0));
+        assert!(alert.should_trigger(8000.0, 6.0));
+        assert!(!alert.should_trigger(8000.0, 4.0));
+    }
+
+    #[test]
+    fn alert_pct_loss_fires_when_change_meets_threshold() {
+        let alert = Alert::new("BBCA", AlertType::PercentLoss, 5.0);
+        assert!(alert.should_trigger(8000.0, -5.0));
+        assert!(alert.should_trigger(8000.0, -6.0));
+        assert!(!alert.should_trigger(8000.0, -4.0));
+    }
+
+    #[test]
+    fn alert_disabled_does_not_fire() {
+        let mut alert = Alert::new("BBCA", AlertType::Above, 8000.0);
+        alert.enabled = false;
+        assert!(!alert.should_trigger(8001.0, 0.0));
+    }
+
+    #[test]
+    fn alert_respects_cooldown() {
+        let mut alert = Alert::new("BBCA", AlertType::Above, 8000.0);
+        alert.cooldown_seconds = 1000;
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        alert.last_triggered = Some(now);
+        assert!(!alert.should_trigger(8001.0, 0.0));
+    }
+
+    #[test]
+    fn config_add_remove_toggle_alerts() {
+        let mut config = Config::test_config();
+        let alert = Alert::new("BBCA", AlertType::Above, 8000.0);
+        let id = alert.id.clone();
+        config.add_alert(alert);
+        assert_eq!(config.alerts.len(), 1);
+        assert!(config.has_active_alerts("BBCA"));
+
+        config.toggle_alert(&id);
+        assert!(!config.has_active_alerts("BBCA"));
+
+        config.toggle_alert(&id);
+        assert!(config.has_active_alerts("BBCA"));
+
+        config.remove_alert(&id);
+        assert_eq!(config.alerts.len(), 0);
+    }
+
+    #[test]
+    fn config_alerts_for_symbol_filters_correctly() {
+        let mut config = Config::test_config();
+        config.add_alert(Alert::new("BBCA", AlertType::Above, 8000.0));
+        config.add_alert(Alert::new("BBCA", AlertType::Below, 7000.0));
+        config.add_alert(Alert::new("TLKM", AlertType::Above, 3500.0));
+
+        let bbca_alerts = config.alerts_for_symbol("BBCA");
+        assert_eq!(bbca_alerts.len(), 2);
+        let tlkm_alerts = config.alerts_for_symbol("TLKM");
+        assert_eq!(tlkm_alerts.len(), 1);
+    }
+
+    #[test]
+    fn alert_type_cycles() {
+        let mut at = AlertType::Above;
+        at = at.next();
+        assert_eq!(at, AlertType::Below);
+        at = at.next();
+        assert_eq!(at, AlertType::PercentGain);
+        at = at.next();
+        assert_eq!(at, AlertType::PercentLoss);
+        at = at.next();
+        assert_eq!(at, AlertType::Above);
     }
 }
