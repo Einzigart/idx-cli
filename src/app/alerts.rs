@@ -80,7 +80,11 @@ impl App {
         Ok(())
     }
 
-    pub fn alert_type_cycle(&mut self) {
+    pub fn alert_type_up(&mut self) {
+        self.pending_alert_type = self.pending_alert_type.prev();
+    }
+
+    pub fn alert_type_down(&mut self) {
         self.pending_alert_type = self.pending_alert_type.next();
     }
 
@@ -159,7 +163,6 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
 
     #[test]
     fn check_alerts_fires_when_price_matches() {

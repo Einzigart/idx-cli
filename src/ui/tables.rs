@@ -165,9 +165,22 @@ fn watchlist_cell(
     chg_style: Style,
     is_selected: bool,
     has_news: bool,
+    has_alert: bool,
 ) -> Cell<'static> {
     match col_idx {
-        0 => Cell::from(q.symbol.clone()).style(bold_text),
+        0 => {
+            let label = if has_alert {
+                format!("! {}", q.symbol)
+            } else {
+                q.symbol.clone()
+            };
+            let style = if has_alert {
+                bold_text.fg(Color::Red)
+            } else {
+                bold_text
+            };
+            Cell::from(label).style(style)
+        }
         1 => Cell::from(truncate_str(&q.short_name, 20)).style(text_style),
         2 => Cell::from(format_price(q.price)).style(bold_text),
         3 => Cell::from(format_change(q.change)).style(chg_style),
@@ -203,6 +216,7 @@ fn watchlist_row(
     vis: &[usize],
     selected_index: usize,
     has_news: bool,
+    has_alert: bool,
 ) -> Row<'static> {
     let is_selected = i == selected_index;
     if let Some(q) = quote {
@@ -238,6 +252,7 @@ fn watchlist_row(
                     chg_style,
                     is_selected,
                     has_news,
+                    has_alert,
                 )
             })
             .collect();
@@ -258,7 +273,18 @@ fn watchlist_row(
         let cells: Vec<Cell> = vis
             .iter()
             .map(|&col| match col {
-                0 => Cell::from(symbol.to_string()),
+                0 => {
+                    let label = if has_alert {
+                        format!("! {}", symbol)
+                    } else {
+                        symbol.to_string()
+                    };
+                    if has_alert {
+                        Cell::from(label).style(Style::default().fg(Color::Red))
+                    } else {
+                        Cell::from(label)
+                    }
+                }
                 10 => {
                     if has_news {
                         Cell::from(" * ").style(Style::default().fg(Color::Yellow))
@@ -348,7 +374,8 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &mut App) {
         .enumerate()
         .map(|(i, (symbol, quote))| {
             let has_news = app.has_recent_news(symbol);
-            watchlist_row(i, symbol, *quote, &vis, app.selected_index, has_news)
+            let has_alert = app.config.has_active_alerts(symbol);
+            watchlist_row(i, symbol, *quote, &vis, app.selected_index, has_news, has_alert)
         })
         .collect();
 
@@ -368,11 +395,20 @@ fn portfolio_cell(
     metrics: (f64, f64, f64, f64, f64),
     styles: (Style, Style, Style),
     has_news: bool,
+    has_alert: bool,
 ) -> Cell<'static> {
     let (curr_price, value, cost, pl, pl_percent) = metrics;
     let (bold_text, text_style, pl_style) = styles;
     match col_idx {
-        0 => Cell::from(holding.symbol.clone()).style(bold_text),
+        0 => {
+            let label = if has_alert {
+                format!("! {}", holding.symbol)
+            } else {
+                holding.symbol.clone()
+            };
+            let style = if has_alert { bold_text.fg(Color::Red) } else { bold_text };
+            Cell::from(label).style(style)
+        }
         1 => Cell::from(truncate_str(short_name, 20)).style(text_style),
         2 => Cell::from(format!("{}", holding.lots)).style(text_style),
         3 => Cell::from(format_price(holding.avg_price)).style(text_style),
@@ -398,6 +434,7 @@ fn portfolio_row(
     app: &App,
     vis: &[usize],
     has_news: bool,
+    has_alert: bool,
 ) -> (Row<'static>, f64, f64) {
     let is_selected = i == app.portfolio_selected;
     let quote = app.quotes.get(&holding.symbol);
@@ -438,6 +475,7 @@ fn portfolio_row(
                 (curr_price, value, cost, pl, pl_percent),
                 (bold_text, text_style, pl_style),
                 has_news,
+                has_alert,
             )
         })
         .collect();
@@ -469,7 +507,8 @@ pub fn draw_portfolio(frame: &mut Frame, area: Rect, app: &mut App) {
         .enumerate()
         .map(|(i, (_orig_idx, holding))| {
             let has_news = app.has_recent_news(&holding.symbol);
-            let (row, value, cost) = portfolio_row(i, holding, app, &vis, has_news);
+            let has_alert = app.config.has_active_alerts(&holding.symbol);
+            let (row, value, cost) = portfolio_row(i, holding, app, &vis, has_news, has_alert);
             total_value += value;
             total_cost += cost;
             row

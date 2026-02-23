@@ -77,6 +77,15 @@ impl AlertType {
             AlertType::PercentLoss => AlertType::Above,
         }
     }
+
+    pub fn prev(&self) -> AlertType {
+        match self {
+            AlertType::Above => AlertType::PercentLoss,
+            AlertType::Below => AlertType::Above,
+            AlertType::PercentGain => AlertType::Below,
+            AlertType::PercentLoss => AlertType::PercentGain,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

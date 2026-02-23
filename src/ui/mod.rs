@@ -310,7 +310,7 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         InputMode::AlertAddType => Line::from(Span::styled(
-            " [h/l or ←→] Next type  [Enter] Confirm  [Esc] Back ",
+            " [↑↓/jk] Navigate types  [Enter] Confirm  [Esc] Back ",
             Style::default().fg(Color::DarkGray),
         )),
         InputMode::AlertAddValue => Line::from(vec![

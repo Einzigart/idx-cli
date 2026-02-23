@@ -101,6 +101,16 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
             && let Some(symbols) = app.refresh_symbols()
         {
             app.execute_refresh(&symbols).await?;
+            let triggered = app.check_alerts();
+            if !triggered.is_empty() {
+                if let Some((_, msg)) = triggered.last() {
+                    app.status_message = Some(msg.clone());
+                    print!("\x07");
+                    let _ = std::process::Command::new("notify-send")
+                        .args(["IDX Alert", msg, "--icon=dialog-warning"])
+                        .spawn();
+                }
+            }
             last_refresh = Instant::now();
         }
 
@@ -296,8 +306,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                 },
                 InputMode::AlertAddType => match key.code {
                     KeyCode::Esc => app.cancel_alert_add(),
-                    KeyCode::Left | KeyCode::Char('h')
-                    | KeyCode::Right | KeyCode::Char('l') => app.alert_type_cycle(),
+                    KeyCode::Up | KeyCode::Char('k') => app.alert_type_up(),
+                    KeyCode::Down | KeyCode::Char('j') => app.alert_type_down(),
                     KeyCode::Enter => app.alert_type_confirm(),
                     _ => {}
                 },

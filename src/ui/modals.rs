@@ -251,44 +251,45 @@ fn alert_modal_content(app: &crate::app::App) -> Vec<Line<'static>> {
     };
     let alerts = app.config.alerts_for_symbol(&sym);
     let count = alerts.len();
-    let mut lines = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            format!("  Alerts for {}", sym),
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-        )),
-        Line::from(""),
-    ];
+    let mut lines: Vec<Line<'static>> = Vec::new();
+
+    if alerts.is_empty() {
+        lines.push(Line::from(Span::styled(
+            " No alerts set",
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
 
     for (i, alert) in alerts.iter().enumerate() {
         let is_sel = i == app.alert_list_selected;
-        let enabled_icon = if alert.enabled { "●" } else { "○" };
-        let enabled_color = if alert.enabled { Color::Green } else { Color::DarkGray };
+        let icon = if alert.enabled { "●" } else { "○" };
         let label = Cow::from(format!(
-            "  {} {:8} {:>10.2}  {}",
-            enabled_icon,
+            " {} {} {:.0}  {}",
+            icon,
             alert.alert_type.label(),
             alert.target_value,
-            if alert.enabled { "ON " } else { "OFF" },
+            if alert.enabled { "ON" } else { "OFF" },
         ));
-        let row_style = if is_sel {
+        let style = if is_sel {
             Style::default().bg(Color::Rgb(40, 40, 80)).fg(Color::White)
+        } else if alert.enabled {
+            Style::default().fg(Color::Green)
         } else {
-            Style::default().fg(enabled_color)
+            Style::default().fg(Color::DarkGray)
         };
-        lines.push(Line::from(Span::styled(label, row_style)));
+        lines.push(Line::from(Span::styled(label, style)));
     }
 
-    let add_style = if app.alert_list_selected == count {
+    let add_sel = app.alert_list_selected == count;
+    let add_style = if add_sel {
         Style::default().bg(Color::Rgb(40, 80, 40)).fg(Color::Green)
     } else {
         Style::default().fg(Color::Green)
     };
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled("  [ + Add Alert ]", add_style)));
+    lines.push(Line::from(Span::styled(" + Add Alert", add_style)));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "  [Enter] Toggle/Add  [d] Delete  [↑↓/jk] Nav  [Esc] Close",
+        " [Enter] Toggle/Add [d] Del [↑↓] Nav [Esc] Close",
         Style::default().fg(Color::DarkGray),
     )));
     lines
@@ -298,11 +299,7 @@ fn alert_add_type_content(app: &crate::app::App) -> Vec<Line<'static>> {
     use crate::config::AlertType;
     use std::borrow::Cow;
     let types = [AlertType::Above, AlertType::Below, AlertType::PercentGain, AlertType::PercentLoss];
-    let mut lines = vec![
-        Line::from(""),
-        Line::from(Span::styled("  Select alert type:", Style::default().fg(Color::Cyan))),
-        Line::from(""),
-    ];
+    let mut lines: Vec<Line<'static>> = Vec::new();
     for t in &types {
         let is_sel = &app.pending_alert_type == t;
         let style = if is_sel {
@@ -310,12 +307,12 @@ fn alert_add_type_content(app: &crate::app::App) -> Vec<Line<'static>> {
         } else {
             Style::default().fg(Color::DarkGray)
         };
-        let label = Cow::from(format!("  {} {}", if is_sel { ">" } else { " " }, t.label()));
+        let label = Cow::from(format!(" {} {}", if is_sel { ">" } else { " " }, t.label()));
         lines.push(Line::from(Span::styled(label, style)));
     }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "  [h/l or ←→] Next type  [Enter] Confirm  [Esc] Back",
+        " [↑↓] Navigate  [Enter] Confirm  [Esc] Back",
         Style::default().fg(Color::DarkGray),
     )));
     lines
@@ -324,20 +321,18 @@ fn alert_add_type_content(app: &crate::app::App) -> Vec<Line<'static>> {
 fn alert_add_value_content(app: &crate::app::App) -> Vec<Line<'static>> {
     use std::borrow::Cow;
     vec![
-        Line::from(""),
         Line::from(Span::styled(
-            Cow::from(format!("  Type: {}", app.pending_alert_type.label())),
-            Style::default().fg(Color::Cyan),
+            Cow::from(format!(" Type: {}", app.pending_alert_type.label())),
+            Style::default().fg(Color::DarkGray),
         )),
-        Line::from(""),
         Line::from(vec![
-            Span::raw("  Target: "),
+            Span::raw(" Value: "),
             Span::styled(Cow::from(app.input_buffer.clone()), Style::default().fg(Color::Yellow)),
             Span::styled("█", Style::default().fg(Color::Yellow)),
         ]),
         Line::from(""),
         Line::from(Span::styled(
-            "  [Enter] Add  [Esc] Back",
+            " [Enter] Add  [Esc] Back",
             Style::default().fg(Color::DarkGray),
         )),
     ]
@@ -345,13 +340,29 @@ fn alert_add_value_content(app: &crate::app::App) -> Vec<Line<'static>> {
 
 pub fn draw_alert_modal(frame: &mut Frame, app: &crate::app::App) {
     use crate::app::InputMode;
-    let area = centered_rect(50, 60, frame.area());
+
+    let content = match app.input_mode {
+        InputMode::AlertAddType => alert_add_type_content(app),
+        InputMode::AlertAddValue => alert_add_value_content(app),
+        _ => alert_modal_content(app),
+    };
+
+    // Size the modal to fit content: 2 for border, content lines for height
+    let height = (content.len() as u16 + 2).min(frame.area().height.saturating_sub(6));
+    let width = 50u16.min(frame.area().width.saturating_sub(4));
+
+    let area = centered_rect(
+        (width * 100 / frame.area().width.max(1)) as u16,
+        (height * 100 / frame.area().height.max(1)) as u16,
+        frame.area(),
+    );
     frame.render_widget(Clear, area);
 
+    let sym = app.alert_symbol.as_deref().unwrap_or("?");
     let title = match app.input_mode {
-        InputMode::AlertAddType => " Set Alert Type ",
-        InputMode::AlertAddValue => " Set Alert Value ",
-        _ => " Manage Alerts ",
+        InputMode::AlertAddType => format!(" {} > Alert Type ", sym),
+        InputMode::AlertAddValue => format!(" {} > Alert Value ", sym),
+        _ => format!(" Alerts: {} ", sym),
     };
     let outer_block = Block::default()
         .title(title)
@@ -361,11 +372,6 @@ pub fn draw_alert_modal(frame: &mut Frame, app: &crate::app::App) {
     let inner_area = outer_block.inner(area);
     frame.render_widget(outer_block, area);
 
-    let content = match app.input_mode {
-        InputMode::AlertAddType => alert_add_type_content(app),
-        InputMode::AlertAddValue => alert_add_value_content(app),
-        _ => alert_modal_content(app),
-    };
     frame.render_widget(
         Paragraph::new(content).alignment(Alignment::Left),
         inner_area,
