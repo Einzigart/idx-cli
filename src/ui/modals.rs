@@ -315,7 +315,7 @@ fn alert_add_type_content(app: &crate::app::App) -> Vec<Line<'static>> {
     }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        "  [h/l or ←→] Cycle  [Enter] Confirm  [Esc] Back",
+        "  [h/l or ←→] Next type  [Enter] Confirm  [Esc] Back",
         Style::default().fg(Color::DarkGray),
     )));
     lines
