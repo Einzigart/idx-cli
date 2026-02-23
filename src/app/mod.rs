@@ -184,16 +184,19 @@ impl App {
         })
     }
 
-    /// Collect symbols for the current view. Returns `None` for News view
-    /// or empty watchlists (no network call needed).
+    /// Collect symbols for the current view. Returns `None` for News view.
+    /// Always includes `^JKSE` so the IHSG index is available.
     pub fn refresh_symbols(&self) -> Option<Vec<String>> {
-        let symbols: Vec<String> = match self.view_mode {
+        let mut symbols: Vec<String> = match self.view_mode {
             ViewMode::Watchlist => self.config.current_watchlist().symbols.clone(),
             ViewMode::Portfolio => self.config.portfolio_symbols(),
             ViewMode::News => return None,
         };
         if symbols.is_empty() {
-            return None;
+            return Some(vec!["^JKSE".to_string()]);
+        }
+        if !symbols.contains(&"^JKSE".to_string()) {
+            symbols.push("^JKSE".to_string());
         }
         Some(symbols)
     }
@@ -394,6 +397,10 @@ impl App {
 
     pub fn get_detail_quote(&self) -> Option<&StockQuote> {
         self.detail_symbol.as_ref().and_then(|s| self.quotes.get(s))
+    }
+
+    pub fn get_ihsg_quote(&self) -> Option<&StockQuote> {
+        self.quotes.get("IHSG")
     }
 
     async fn open_detail(&mut self, symbol: &str) {
