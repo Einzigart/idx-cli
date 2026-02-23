@@ -177,33 +177,52 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Up => app.move_up(),
                     KeyCode::Down => app.move_down(),
                     KeyCode::Left | KeyCode::Char('h') => {
-                        if app.view_mode == ViewMode::Watchlist {
-                            app.prev_watchlist();
-                            needs_refresh = true;
+                        match app.view_mode {
+                            ViewMode::Watchlist => {
+                                app.prev_watchlist();
+                                needs_refresh = true;
+                            }
+                            ViewMode::Portfolio => {
+                                app.prev_portfolio();
+                                needs_refresh = true;
+                            }
+                            _ => {}
                         }
                     }
                     KeyCode::Right | KeyCode::Char('l') => {
-                        if app.view_mode == ViewMode::Watchlist {
-                            app.next_watchlist();
-                            needs_refresh = true;
+                        match app.view_mode {
+                            ViewMode::Watchlist => {
+                                app.next_watchlist();
+                                needs_refresh = true;
+                            }
+                            ViewMode::Portfolio => {
+                                app.next_portfolio();
+                                needs_refresh = true;
+                            }
+                            _ => {}
                         }
                     }
-                    KeyCode::Char('n') => {
-                        if app.view_mode == ViewMode::Watchlist {
-                            app.start_watchlist_add();
-                        }
-                    }
-                    KeyCode::Char('R') => {
-                        if app.view_mode == ViewMode::Watchlist {
-                            app.start_watchlist_rename();
-                        }
-                    }
-                    KeyCode::Char('D') => {
-                        if app.view_mode == ViewMode::Watchlist {
+                    KeyCode::Char('n') => match app.view_mode {
+                        ViewMode::Watchlist => app.start_watchlist_add(),
+                        ViewMode::Portfolio => app.start_portfolio_new(),
+                        _ => {}
+                    },
+                    KeyCode::Char('R') => match app.view_mode {
+                        ViewMode::Watchlist => app.start_watchlist_rename(),
+                        ViewMode::Portfolio => app.start_portfolio_rename(),
+                        _ => {}
+                    },
+                    KeyCode::Char('D') => match app.view_mode {
+                        ViewMode::Watchlist => {
                             app.remove_current_watchlist()?;
                             needs_refresh = true;
                         }
-                    }
+                        ViewMode::Portfolio => {
+                            app.remove_current_portfolio()?;
+                            needs_refresh = true;
+                        }
+                        _ => {}
+                    },
                     KeyCode::Enter => match app.view_mode {
                         ViewMode::Watchlist => app.show_stock_detail().await,
                         ViewMode::Portfolio => app.show_portfolio_detail().await,
@@ -276,6 +295,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         InputMode::PortfolioEditLots | InputMode::PortfolioEditPrice => {
                             app.cancel_portfolio_edit()
                         }
+                        InputMode::PortfolioNew | InputMode::PortfolioRename => {
+                            app.cancel_input()
+                        }
                         InputMode::Search => app.cancel_search(),
                         _ => app.cancel_input(),
                     },
@@ -291,6 +313,13 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         InputMode::WatchlistRename => {
                             app.confirm_watchlist_rename()?;
                             needs_refresh = true;
+                        }
+                        InputMode::PortfolioNew => {
+                            app.confirm_portfolio_new()?;
+                            needs_refresh = true;
+                        }
+                        InputMode::PortfolioRename => {
+                            app.confirm_portfolio_rename()?;
                         }
                         InputMode::PortfolioAddSymbol => app.confirm_portfolio_symbol(),
                         InputMode::PortfolioAddLots => app.confirm_portfolio_lots(),
@@ -320,7 +349,8 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => {
                                 c.is_ascii_digit() || c == '.'
                             }
-                            InputMode::WatchlistAdd | InputMode::WatchlistRename => {
+                            InputMode::WatchlistAdd | InputMode::WatchlistRename
+                            | InputMode::PortfolioNew | InputMode::PortfolioRename => {
                                 c.is_alphanumeric() || c == ' ' || c == '-' || c == '_'
                             }
                             InputMode::Search => true,
