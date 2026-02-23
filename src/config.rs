@@ -340,7 +340,7 @@ impl Config {
     }
 
     #[cfg(test)]
-    fn test_config() -> Self {
+    pub(crate) fn test_config() -> Self {
         Self {
             watchlists: vec![Watchlist::default()],
             active_watchlist: 0,
