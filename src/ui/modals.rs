@@ -298,12 +298,19 @@ fn alert_modal_content(app: &crate::app::App) -> Vec<Line<'static>> {
 fn alert_add_type_content(app: &crate::app::App) -> Vec<Line<'static>> {
     use crate::config::AlertType;
     use std::borrow::Cow;
-    let types = [AlertType::Above, AlertType::Below, AlertType::PercentGain, AlertType::PercentLoss];
+    let types = [
+        AlertType::Above,
+        AlertType::Below,
+        AlertType::PercentGain,
+        AlertType::PercentLoss,
+    ];
     let mut lines: Vec<Line<'static>> = Vec::new();
     for t in &types {
         let is_sel = &app.pending_alert_type == t;
         let style = if is_sel {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::DarkGray)
         };
@@ -327,7 +334,10 @@ fn alert_add_value_content(app: &crate::app::App) -> Vec<Line<'static>> {
         )),
         Line::from(vec![
             Span::raw(" Value: "),
-            Span::styled(Cow::from(app.input_buffer.clone()), Style::default().fg(Color::Yellow)),
+            Span::styled(
+                Cow::from(app.input_buffer.clone()),
+                Style::default().fg(Color::Yellow),
+            ),
             Span::styled("█", Style::default().fg(Color::Yellow)),
         ]),
         Line::from(""),
@@ -352,8 +362,8 @@ pub fn draw_alert_modal(frame: &mut Frame, app: &crate::app::App) {
     let width = 50u16.min(frame.area().width.saturating_sub(4));
 
     let area = centered_rect(
-        (width * 100 / frame.area().width.max(1)) as u16,
-        (height * 100 / frame.area().height.max(1)) as u16,
+        width * 100 / frame.area().width.max(1),
+        height * 100 / frame.area().height.max(1),
         frame.area(),
     );
     frame.render_widget(Clear, area);

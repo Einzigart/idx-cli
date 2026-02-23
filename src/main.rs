@@ -102,14 +102,12 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
         {
             app.execute_refresh(&symbols).await?;
             let triggered = app.check_alerts();
-            if !triggered.is_empty() {
-                if let Some((_, msg)) = triggered.last() {
-                    app.status_message = Some(msg.clone());
-                    print!("\x07");
-                    let _ = std::process::Command::new("notify-send")
-                        .args(["IDX Alert", msg, "--icon=dialog-warning"])
-                        .spawn();
-                }
+            if let Some((_, msg)) = triggered.last() {
+                app.status_message = Some(msg.clone());
+                print!("\x07");
+                let _ = std::process::Command::new("notify-send")
+                    .args(["IDX Alert", msg, "--icon=dialog-warning"])
+                    .spawn();
             }
             last_refresh = Instant::now();
         }
@@ -374,9 +372,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             InputMode::PortfolioAddPrice | InputMode::PortfolioEditPrice => {
                                 c.is_ascii_digit() || c == '.'
                             }
-                            InputMode::AlertAddValue => {
-                                c.is_ascii_digit() || c == '.'
-                            }
+                            InputMode::AlertAddValue => c.is_ascii_digit() || c == '.',
                             InputMode::WatchlistAdd
                             | InputMode::WatchlistRename
                             | InputMode::PortfolioNew

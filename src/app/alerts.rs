@@ -1,5 +1,5 @@
-use crate::config::{Alert, AlertType};
 use crate::app::{App, InputMode, ViewMode};
+use crate::config::{Alert, AlertType};
 
 impl App {
     pub fn open_alert_modal(&mut self) {
@@ -31,7 +31,9 @@ impl App {
     }
 
     pub fn alert_list_down(&mut self) {
-        let count = self.alert_symbol.as_ref()
+        let count = self
+            .alert_symbol
+            .as_ref()
             .map(|s| self.config.alerts_for_symbol(s).len())
             .unwrap_or(0);
         if self.alert_list_selected < count {
@@ -52,8 +54,9 @@ impl App {
             self.input_mode = InputMode::AlertAddType;
         } else {
             // Toggle enable/disable on the selected existing alert
-            let id = self.config.alerts_for_symbol(&sym)
-                [self.alert_list_selected].id.clone();
+            let id = self.config.alerts_for_symbol(&sym)[self.alert_list_selected]
+                .id
+                .clone();
             self.config.toggle_alert(&id);
             if let Err(e) = self.config.save() {
                 self.status_message = Some(format!("Save error: {}", e));
@@ -68,11 +71,14 @@ impl App {
         };
         let count = self.config.alerts_for_symbol(&sym).len();
         if self.alert_list_selected < count {
-            let id = self.config.alerts_for_symbol(&sym)
-                [self.alert_list_selected].id.clone();
+            let id = self.config.alerts_for_symbol(&sym)[self.alert_list_selected]
+                .id
+                .clone();
             self.config.remove_alert(&id);
             self.config.save()?;
-            if self.alert_list_selected > 0 && self.alert_list_selected >= self.config.alerts_for_symbol(&sym).len() {
+            if self.alert_list_selected > 0
+                && self.alert_list_selected >= self.config.alerts_for_symbol(&sym).len()
+            {
                 self.alert_list_selected -= 1;
             }
             self.status_message = Some("Alert deleted".to_string());
@@ -123,22 +129,28 @@ impl App {
     pub fn check_alerts(&mut self) -> Vec<(String, String)> {
         let mut triggered: Vec<(String, String)> = Vec::new();
 
-        let to_trigger: Vec<(String, String, String)> = self.config.alerts
+        let to_trigger: Vec<(String, String, String)> = self
+            .config
+            .alerts
             .iter()
             .filter_map(|alert| {
                 let quote = self.quotes.get(&alert.symbol)?;
                 if alert.should_trigger(quote.price, quote.change_percent) {
                     let msg = match alert.alert_type {
-                        AlertType::Above =>
-                            format!("{} crossed above {:.0}", alert.symbol, alert.target_value),
-                        AlertType::Below =>
-                            format!("{} crossed below {:.0}", alert.symbol, alert.target_value),
-                        AlertType::PercentGain =>
-                            format!("{} up {:.2}% (target +{:.2}%)",
-                                alert.symbol, quote.change_percent, alert.target_value),
-                        AlertType::PercentLoss =>
-                            format!("{} down {:.2}% (target -{:.2}%)",
-                                alert.symbol, quote.change_percent, alert.target_value),
+                        AlertType::Above => {
+                            format!("{} crossed above {:.0}", alert.symbol, alert.target_value)
+                        }
+                        AlertType::Below => {
+                            format!("{} crossed below {:.0}", alert.symbol, alert.target_value)
+                        }
+                        AlertType::PercentGain => format!(
+                            "{} up {:.2}% (target +{:.2}%)",
+                            alert.symbol, quote.change_percent, alert.target_value
+                        ),
+                        AlertType::PercentLoss => format!(
+                            "{} down {:.2}% (target -{:.2}%)",
+                            alert.symbol, quote.change_percent, alert.target_value
+                        ),
                     };
                     Some((alert.id.clone(), alert.symbol.clone(), msg))
                 } else {

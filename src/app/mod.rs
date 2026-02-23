@@ -1,13 +1,13 @@
+mod alerts;
 mod export;
 mod filter;
 mod news;
 mod portfolio;
 mod sort;
 mod watchlist;
-mod alerts;
 
 use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
-use crate::config::{Config, AlertType};
+use crate::config::{AlertType, Config};
 use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 use anyhow::Result;
 use ratatui::widgets::TableState;

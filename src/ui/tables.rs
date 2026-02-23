@@ -157,6 +157,7 @@ pub(super) fn visible_columns(columns: &[ColumnDef], available_width: u16) -> Ve
     visible
 }
 
+#[allow(clippy::too_many_arguments)]
 fn watchlist_cell(
     col_idx: usize,
     q: &StockQuote,
@@ -375,7 +376,15 @@ pub fn draw_watchlist(frame: &mut Frame, area: Rect, app: &mut App) {
         .map(|(i, (symbol, quote))| {
             let has_news = app.has_recent_news(symbol);
             let has_alert = app.config.has_active_alerts(symbol);
-            watchlist_row(i, symbol, *quote, &vis, app.selected_index, has_news, has_alert)
+            watchlist_row(
+                i,
+                symbol,
+                *quote,
+                &vis,
+                app.selected_index,
+                has_news,
+                has_alert,
+            )
         })
         .collect();
 
@@ -406,7 +415,11 @@ fn portfolio_cell(
             } else {
                 holding.symbol.clone()
             };
-            let style = if has_alert { bold_text.fg(Color::Red) } else { bold_text };
+            let style = if has_alert {
+                bold_text.fg(Color::Red)
+            } else {
+                bold_text
+            };
             Cell::from(label).style(style)
         }
         1 => Cell::from(truncate_str(short_name, 20)).style(text_style),
