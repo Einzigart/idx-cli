@@ -1,4 +1,5 @@
 mod alerts;
+mod bookmarks;
 mod export;
 mod filter;
 mod news;
@@ -8,7 +9,10 @@ mod watchlist;
 
 use crate::api::{ChartData, NewsClient, NewsItem, StockQuote, YahooClient};
 use crate::config::{AlertType, Config};
-use crate::ui::{NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
+use crate::ui::{
+    BOOKMARK_SORTABLE_COLUMNS, NEWS_SORTABLE_COLUMNS, PORTFOLIO_SORTABLE_COLUMNS,
+    WATCHLIST_SORTABLE_COLUMNS,
+};
 use anyhow::Result;
 use ratatui::widgets::TableState;
 use std::collections::HashMap;
@@ -60,6 +64,8 @@ pub enum InputMode {
     AlertList,
     AlertAddType,
     AlertAddValue,
+    BookmarkDetail,
+    BookmarkClearConfirm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +73,7 @@ pub enum ViewMode {
     Watchlist,
     Portfolio,
     News,
+    Bookmarks,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -146,6 +153,11 @@ pub struct App {
     pub portfolio_table_state: TableState,
     pub news_table_state: TableState,
     pub table_viewport_height: usize,
+    pub bookmark_selected: usize,
+    pub bookmark_table_state: TableState,
+    pub bookmark_sort_column: Option<usize>,
+    pub bookmark_sort_direction: SortDirection,
+    pub bookmark_detail_scroll: usize,
     news_client: NewsClient,
     client: YahooClient,
 }
@@ -194,6 +206,11 @@ impl App {
             portfolio_table_state: TableState::default(),
             news_table_state: TableState::default(),
             table_viewport_height: 0,
+            bookmark_selected: 0,
+            bookmark_table_state: TableState::default(),
+            bookmark_sort_column: None,
+            bookmark_sort_direction: SortDirection::Descending,
+            bookmark_detail_scroll: 0,
             news_client: NewsClient::new(),
             client: YahooClient::new(),
         })
@@ -241,6 +258,11 @@ impl App {
             portfolio_table_state: TableState::default(),
             news_table_state: TableState::default(),
             table_viewport_height: 20,
+            bookmark_selected: 0,
+            bookmark_table_state: TableState::default(),
+            bookmark_sort_column: None,
+            bookmark_sort_direction: SortDirection::Descending,
+            bookmark_detail_scroll: 0,
             news_client: NewsClient::new(),
             client: YahooClient::new(),
         }
@@ -252,7 +274,7 @@ impl App {
         let mut symbols: Vec<String> = match self.view_mode {
             ViewMode::Watchlist => self.config.current_watchlist().symbols.clone(),
             ViewMode::Portfolio => self.config.portfolio_symbols(),
-            ViewMode::News => return None,
+            ViewMode::News | ViewMode::Bookmarks => return None,
         };
         if symbols.is_empty() {
             return Some(vec!["^JKSE".to_string()]);
@@ -333,6 +355,20 @@ impl App {
                     *state.offset_mut() = sel + 1 - vh;
                 }
             }
+            ViewMode::Bookmarks => {
+                if self.bookmark_selected > 0 {
+                    self.bookmark_selected -= 1;
+                }
+                let sel = self.bookmark_selected;
+                let state = &mut self.bookmark_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
+                }
+            }
         }
     }
 
@@ -384,6 +420,21 @@ impl App {
                     *state.offset_mut() = sel + 1 - vh;
                 }
             }
+            ViewMode::Bookmarks => {
+                let len = self.get_filtered_bookmarks().len();
+                if len > 0 && self.bookmark_selected < len - 1 {
+                    self.bookmark_selected += 1;
+                }
+                let sel = self.bookmark_selected;
+                let state = &mut self.bookmark_table_state;
+                state.select(Some(sel));
+                let off = state.offset();
+                if sel < off {
+                    *state.offset_mut() = sel;
+                } else if vh > 0 && sel >= off + vh {
+                    *state.offset_mut() = sel + 1 - vh;
+                }
+            }
         }
     }
 
@@ -392,6 +443,7 @@ impl App {
             ViewMode::Watchlist => WATCHLIST_SORTABLE_COLUMNS,
             ViewMode::Portfolio => PORTFOLIO_SORTABLE_COLUMNS,
             ViewMode::News => NEWS_SORTABLE_COLUMNS,
+            ViewMode::Bookmarks => BOOKMARK_SORTABLE_COLUMNS,
         };
         let (col, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_column, &mut self.selected_index),
@@ -400,6 +452,7 @@ impl App {
                 &mut self.portfolio_selected,
             ),
             ViewMode::News => (&mut self.news_sort_column, &mut self.news_selected),
+            ViewMode::Bookmarks => (&mut self.bookmark_sort_column, &mut self.bookmark_selected),
         };
         *col = match *col {
             None => Some(0),
@@ -418,6 +471,10 @@ impl App {
                 &mut self.portfolio_selected,
             ),
             ViewMode::News => (&mut self.news_sort_direction, &mut self.news_selected),
+            ViewMode::Bookmarks => (
+                &mut self.bookmark_sort_direction,
+                &mut self.bookmark_selected,
+            ),
         };
         dir.toggle();
         *selected = 0;
@@ -429,6 +486,7 @@ impl App {
             ViewMode::Watchlist => &mut self.watchlist_table_state,
             ViewMode::Portfolio => &mut self.portfolio_table_state,
             ViewMode::News => &mut self.news_table_state,
+            ViewMode::Bookmarks => &mut self.bookmark_table_state,
         };
         *state.offset_mut() = 0;
     }
@@ -442,9 +500,10 @@ impl App {
         self.view_mode = match self.view_mode {
             ViewMode::Watchlist => ViewMode::Portfolio,
             ViewMode::Portfolio => ViewMode::News,
-            ViewMode::News => ViewMode::Watchlist,
+            ViewMode::News => ViewMode::Bookmarks,
+            ViewMode::Bookmarks => ViewMode::Watchlist,
         };
-        if self.view_mode != ViewMode::News {
+        if !matches!(self.view_mode, ViewMode::News | ViewMode::Bookmarks) {
             self.quotes.clear();
         }
         self.clear_filter();

@@ -28,13 +28,20 @@ const NEWS_COLUMNS: &[ColumnDef] = &[
 ];
 pub(crate) const NEWS_SORTABLE_COLUMNS: usize = 3;
 
-fn news_row(item: &NewsItem, vis: &[usize]) -> Row<'static> {
+fn news_row(item: &NewsItem, vis: &[usize], is_bookmarked: bool) -> Row<'static> {
     let cells: Vec<Cell> = vis
         .iter()
         .map(|&col| match col {
             0 => Cell::from(format_relative_time(item.published_at)),
             1 => Cell::from(truncate_str(&item.publisher, 18)),
-            2 => Cell::from(item.title.clone()),
+            2 => {
+                if is_bookmarked {
+                    Cell::from(format!("★ {}", item.title))
+                        .style(Style::default().fg(Color::Yellow))
+                } else {
+                    Cell::from(item.title.clone())
+                }
+            }
             _ => Cell::from(""),
         })
         .collect();
@@ -55,7 +62,13 @@ pub fn draw_news(frame: &mut Frame, area: Rect, app: &mut App) {
     );
 
     let filtered = app.get_filtered_news();
-    let rows: Vec<Row> = filtered.iter().map(|item| news_row(item, &vis)).collect();
+    let rows: Vec<Row> = filtered
+        .iter()
+        .map(|item| {
+            let bookmarked = app.config.is_bookmarked(&item.title, item.url.as_deref());
+            news_row(item, &vis, bookmarked)
+        })
+        .collect();
 
     let title = if app.rss_loading {
         " News [Loading...] ".to_string()
