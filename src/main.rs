@@ -1,16 +1,12 @@
-mod api;
-mod app;
-mod config;
-mod ui;
-
 use anyhow::Result;
-use app::{App, InputMode, ViewMode};
 use clap::Parser;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
+use idx_cli::app::{App, InputMode, ViewMode};
+use idx_cli::ui;
 use ratatui::prelude::*;
 use std::io;
 use std::time::Duration;
