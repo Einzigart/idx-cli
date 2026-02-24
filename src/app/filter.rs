@@ -19,9 +19,11 @@ impl App {
             self.selected_index = 0;
             self.portfolio_selected = 0;
             self.news_selected = 0;
+            self.bookmark_selected = 0;
             *self.watchlist_table_state.offset_mut() = 0;
             *self.portfolio_table_state.offset_mut() = 0;
             *self.news_table_state.offset_mut() = 0;
+            *self.bookmark_table_state.offset_mut() = 0;
         } else {
             self.clear_filter();
         }
