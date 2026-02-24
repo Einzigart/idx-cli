@@ -53,9 +53,11 @@ impl App {
             let id = b.id.clone();
             self.config.bookmarks.retain(|b| b.id != id);
             let _ = self.config.save();
-            let len = self.config.bookmarks.len();
+            let len = self.get_filtered_bookmarks().len();
             if self.bookmark_selected >= len && len > 0 {
                 self.bookmark_selected = len - 1;
+            } else if len == 0 {
+                self.bookmark_selected = 0;
             }
             self.status_message = Some("Bookmark removed".to_string());
         }

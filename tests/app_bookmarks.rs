@@ -180,3 +180,62 @@ fn start_clear_bookmarks_no_op_when_empty() {
     // Should stay in Normal mode since there's nothing to clear
     assert_eq!(app.input_mode, InputMode::Normal);
 }
+
+#[test]
+fn remove_bookmark_clamps_to_filtered_list() {
+    let mut app = test_app();
+    app.view_mode = ViewMode::Bookmarks;
+    // Add 3 bookmarks: "Alpha from X", "Beta from Y", "Alpha from Z"
+    app.config
+        .bookmarks
+        .push(make_bookmark("Alpha headline", "X", None));
+    app.config
+        .bookmarks
+        .push(make_bookmark("Beta headline", "Y", None));
+    app.config
+        .bookmarks
+        .push(make_bookmark("Alpha headline again", "Z", None));
+
+    // Search for "ALPHA" — filtered list should have 2 items
+    app.search_active = true;
+    app.search_query = "ALPHA".to_string();
+    assert_eq!(app.get_filtered_bookmarks().len(), 2);
+
+    // Select last filtered item and remove it
+    app.bookmark_selected = 1;
+    app.remove_selected_bookmark();
+
+    // Selection should clamp to filtered length (now 1 item), not unfiltered (2 items)
+    let filtered_len = app.get_filtered_bookmarks().len();
+    assert!(
+        app.bookmark_selected < filtered_len,
+        "bookmark_selected ({}) should be < filtered len ({})",
+        app.bookmark_selected,
+        filtered_len
+    );
+}
+
+#[test]
+fn confirm_search_resets_bookmark_selected() {
+    let mut app = test_app();
+    app.view_mode = ViewMode::Bookmarks;
+    app.config
+        .bookmarks
+        .push(make_bookmark("News A", "X", None));
+    app.config
+        .bookmarks
+        .push(make_bookmark("News B", "Y", None));
+
+    // Simulate user scrolled down in bookmarks
+    app.bookmark_selected = 1;
+    *app.bookmark_table_state.offset_mut() = 1;
+
+    // Now search for something
+    app.input_mode = InputMode::Search;
+    app.input_buffer = "news".to_string();
+    app.confirm_search();
+
+    // Both should be reset to 0
+    assert_eq!(app.bookmark_selected, 0);
+    assert_eq!(app.bookmark_table_state.offset(), 0);
+}
