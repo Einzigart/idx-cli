@@ -1,5 +1,5 @@
 mod detail;
-mod formatters;
+pub mod formatters;
 mod modals;
 mod news;
 mod news_detail;

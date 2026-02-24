@@ -5,6 +5,15 @@ edition = "2024"
 description = "Terminal UI for Indonesian stock market data"
 license = "MIT"
 
+[lib]
+name = "idx_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "idx-cli"
+path = "src/main.rs"
+
+
 [dependencies]
 # TUI
 ratatui = "0.29"
