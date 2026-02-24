@@ -145,6 +145,21 @@ fn default_alerts() -> Vec<Alert> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bookmark {
+    pub id: String,
+    pub headline: String,
+    pub source: String,
+    pub url: Option<String>,
+    pub published_at: i64,
+    pub bookmarked_at: i64,
+    pub read: bool,
+}
+
+fn default_bookmarks() -> Vec<Bookmark> {
+    Vec::new()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Portfolio {
     pub name: String,
     pub holdings: Vec<Holding>,
@@ -168,6 +183,8 @@ pub struct Config {
     pub news_sources: Vec<String>,
     #[serde(default = "default_alerts")]
     pub alerts: Vec<Alert>,
+    #[serde(default = "default_bookmarks")]
+    pub bookmarks: Vec<Bookmark>,
 }
 
 fn default_refresh_interval() -> u64 {
@@ -227,6 +244,7 @@ impl Default for Config {
             active_portfolio: 0,
             news_sources: default_news_sources(),
             alerts: default_alerts(),
+            bookmarks: default_bookmarks(),
         }
     }
 }
@@ -416,6 +434,48 @@ impl Config {
         self.alerts.iter().any(|a| a.symbol == sym && a.enabled)
     }
 
+    /// Check if an article is bookmarked by matching headline and url.
+    pub fn is_bookmarked(&self, headline: &str, url: Option<&str>) -> bool {
+        self.bookmarks
+            .iter()
+            .any(|b| b.headline == headline && b.url.as_deref() == url)
+    }
+
+    /// Add a bookmark, returning false if duplicate.
+    pub fn add_bookmark(&mut self, bookmark: Bookmark) -> bool {
+        if self.is_bookmarked(&bookmark.headline, bookmark.url.as_deref()) {
+            return false;
+        }
+        self.bookmarks.push(bookmark);
+        true
+    }
+
+    /// Remove a bookmark by index.
+    pub fn remove_bookmark(&mut self, index: usize) {
+        if index < self.bookmarks.len() {
+            self.bookmarks.remove(index);
+        }
+    }
+
+    /// Remove all bookmarks.
+    pub fn clear_bookmarks(&mut self) {
+        self.bookmarks.clear();
+    }
+
+    /// Toggle read/unread status for a bookmark at the given index.
+    pub fn toggle_bookmark_read(&mut self, index: usize) {
+        if let Some(b) = self.bookmarks.get_mut(index) {
+            b.read = !b.read;
+        }
+    }
+
+    /// Mark a bookmark as read by index.
+    pub fn mark_bookmark_read(&mut self, index: usize) {
+        if let Some(b) = self.bookmarks.get_mut(index) {
+            b.read = true;
+        }
+    }
+
     /// Add a new holding or merge into an existing one.
     pub fn add_holding(&mut self, symbol: &str, lots: u32, avg_price: f64) -> bool {
         let symbol = symbol.to_uppercase();
@@ -480,6 +540,7 @@ impl Config {
             active_portfolio: 0,
             news_sources: Vec::new(),
             alerts: Vec::new(),
+            bookmarks: Vec::new(),
         }
     }
 

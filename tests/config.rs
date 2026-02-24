@@ -1,4 +1,4 @@
-use idx_cli::config::{Alert, AlertType, Config};
+use idx_cli::config::{Alert, AlertType, Bookmark, Config};
 
 fn test_config() -> Config {
     Config::test_config()
@@ -205,4 +205,90 @@ fn alert_type_cycles() {
     assert_eq!(at, AlertType::PercentLoss);
     at = at.next();
     assert_eq!(at, AlertType::Above);
+}
+
+fn make_test_bookmark(headline: &str, url: Option<&str>) -> Bookmark {
+    Bookmark {
+        id: format!("bm_{}", headline.len()),
+        headline: headline.to_string(),
+        source: "TestSource".to_string(),
+        url: url.map(|u| u.to_string()),
+        published_at: 1000,
+        bookmarked_at: 2000,
+        read: false,
+    }
+}
+
+#[test]
+fn bookmark_add_and_duplicate_prevention() {
+    let mut config = test_config();
+    let bm = make_test_bookmark("BBCA rises", Some("https://a.com"));
+    assert!(config.add_bookmark(bm));
+    assert_eq!(config.bookmarks.len(), 1);
+
+    let dup = make_test_bookmark("BBCA rises", Some("https://a.com"));
+    assert!(!config.add_bookmark(dup));
+    assert_eq!(config.bookmarks.len(), 1);
+}
+
+#[test]
+fn bookmark_remove_by_index() {
+    let mut config = test_config();
+    config.add_bookmark(make_test_bookmark("A", None));
+    config.add_bookmark(make_test_bookmark("B", None));
+    assert_eq!(config.bookmarks.len(), 2);
+
+    config.remove_bookmark(0);
+    assert_eq!(config.bookmarks.len(), 1);
+    assert_eq!(config.bookmarks[0].headline, "B");
+}
+
+#[test]
+fn bookmark_clear_all() {
+    let mut config = test_config();
+    config.add_bookmark(make_test_bookmark("X", None));
+    config.add_bookmark(make_test_bookmark("Y", None));
+    config.clear_bookmarks();
+    assert!(config.bookmarks.is_empty());
+}
+
+#[test]
+fn bookmark_toggle_and_mark_read() {
+    let mut config = test_config();
+    config.add_bookmark(make_test_bookmark("Test", None));
+    assert!(!config.bookmarks[0].read);
+
+    config.toggle_bookmark_read(0);
+    assert!(config.bookmarks[0].read);
+
+    config.toggle_bookmark_read(0);
+    assert!(!config.bookmarks[0].read);
+
+    config.mark_bookmark_read(0);
+    assert!(config.bookmarks[0].read);
+
+    // mark_bookmark_read is idempotent
+    config.mark_bookmark_read(0);
+    assert!(config.bookmarks[0].read);
+}
+
+#[test]
+fn bookmark_is_bookmarked_query() {
+    let mut config = test_config();
+    config.add_bookmark(make_test_bookmark("Headline", Some("https://url.com")));
+
+    assert!(config.is_bookmarked("Headline", Some("https://url.com")));
+    assert!(!config.is_bookmarked("Headline", Some("https://other.com")));
+    assert!(!config.is_bookmarked("Other", Some("https://url.com")));
+    assert!(!config.is_bookmarked("Headline", None));
+}
+
+#[test]
+fn bookmark_deserialization_with_default() {
+    let json = r#"{
+        "watchlists": [{"name": "Default", "symbols": ["BBCA"]}],
+        "active_watchlist": 0
+    }"#;
+    let config: Config = serde_json::from_str(json).unwrap();
+    assert!(config.bookmarks.is_empty());
 }

@@ -208,6 +208,8 @@ fn test_toggle_view_cycle() {
     app.toggle_view();
     assert_eq!(app.view_mode, ViewMode::News);
     app.toggle_view();
+    assert_eq!(app.view_mode, ViewMode::Bookmarks);
+    app.toggle_view();
     assert_eq!(app.view_mode, ViewMode::Watchlist);
 }
 

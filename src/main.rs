@@ -89,10 +89,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     refresh_news_and_draw(terminal, app, &urls).await?;
 
     loop {
-        // Auto-refresh quotes silently (skip in News view).
+        // Auto-refresh quotes silently (skip in News/Bookmarks view).
         // Uses refresh_symbols() instead of prepare_refresh() to avoid
         // setting loading=true, which would flicker the clock display.
-        if app.view_mode != ViewMode::News
+        if !matches!(app.view_mode, ViewMode::News | ViewMode::Bookmarks)
             && last_refresh.elapsed() >= refresh_interval
             && let Some(symbols) = app.refresh_symbols()
         {
@@ -144,7 +144,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Char('e') => match app.view_mode {
                         ViewMode::Portfolio => app.start_portfolio_edit(),
                         ViewMode::Watchlist => app.start_export(),
-                        ViewMode::News => {}
+                        ViewMode::News | ViewMode::Bookmarks => {}
                     },
                     KeyCode::Char('p') => {
                         app.toggle_view();
@@ -153,28 +153,39 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 let urls = app.prepare_news_refresh();
                                 refresh_news_and_draw(terminal, app, &urls).await?;
                             }
-                        } else {
+                        } else if !matches!(app.view_mode, ViewMode::Bookmarks) {
                             needs_refresh = true;
                         }
                     }
                     KeyCode::Char('a') => match app.view_mode {
                         ViewMode::Watchlist => app.start_adding(),
                         ViewMode::Portfolio => app.start_portfolio_add(),
-                        ViewMode::News => {}
+                        ViewMode::News | ViewMode::Bookmarks => {}
                     },
+                    KeyCode::Char('b') => {
+                        if matches!(app.view_mode, ViewMode::News) {
+                            app.toggle_news_bookmark();
+                        }
+                    }
                     KeyCode::Char('d') => {
                         match app.view_mode {
                             ViewMode::Watchlist => app.remove_selected()?,
                             ViewMode::Portfolio => app.remove_selected_holding()?,
+                            ViewMode::Bookmarks => app.remove_selected_bookmark(),
                             ViewMode::News => {}
                         }
                         needs_refresh = true;
+                    }
+                    KeyCode::Char('m') => {
+                        if app.view_mode == ViewMode::Bookmarks {
+                            app.toggle_selected_bookmark_read();
+                        }
                     }
                     KeyCode::Char('r') => {
                         if app.view_mode == ViewMode::News {
                             let urls = app.prepare_news_refresh();
                             refresh_news_and_draw(terminal, app, &urls).await?;
-                        } else {
+                        } else if app.view_mode != ViewMode::Bookmarks {
                             needs_refresh = true;
                         }
                     }
@@ -221,12 +232,14 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             app.remove_current_portfolio()?;
                             needs_refresh = true;
                         }
+                        ViewMode::Bookmarks => app.start_clear_bookmarks(),
                         _ => {}
                     },
                     KeyCode::Enter => match app.view_mode {
                         ViewMode::Watchlist => app.show_stock_detail().await,
                         ViewMode::Portfolio => app.show_portfolio_detail().await,
                         ViewMode::News => app.open_news_detail(),
+                        ViewMode::Bookmarks => app.open_bookmark_detail(),
                     },
                     KeyCode::Char('s') => app.cycle_sort_column(),
                     KeyCode::Char('S') => app.toggle_sort_direction(),
@@ -237,7 +250,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     }
                     KeyCode::Char('A') => match app.view_mode {
                         ViewMode::Watchlist | ViewMode::Portfolio => app.open_alert_modal(),
-                        ViewMode::News => {}
+                        ViewMode::News | ViewMode::Bookmarks => {}
                     },
                     _ => {}
                 },
@@ -279,6 +292,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Up => {
                         app.news_detail_scroll = app.news_detail_scroll.saturating_sub(1);
                     }
+                    KeyCode::Char('b') => {
+                        app.toggle_news_bookmark();
+                    }
                     KeyCode::Char('o') => {
                         let url = app
                             .get_filtered_news()
@@ -288,6 +304,35 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
                         }
                     }
+                    _ => {}
+                },
+                InputMode::BookmarkDetail => match key.code {
+                    KeyCode::Esc => {
+                        app.input_mode = InputMode::Normal;
+                    }
+                    KeyCode::Down => {
+                        app.bookmark_detail_scroll = app.bookmark_detail_scroll.saturating_add(1);
+                    }
+                    KeyCode::Up => {
+                        app.bookmark_detail_scroll = app.bookmark_detail_scroll.saturating_sub(1);
+                    }
+                    KeyCode::Char('m') => {
+                        app.toggle_selected_bookmark_read();
+                    }
+                    KeyCode::Char('o') => {
+                        let url = app
+                            .get_filtered_bookmarks()
+                            .get(app.bookmark_selected)
+                            .and_then(|b| b.url.clone());
+                        if let Some(url) = url {
+                            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+                        }
+                    }
+                    _ => {}
+                },
+                InputMode::BookmarkClearConfirm => match key.code {
+                    KeyCode::Enter => app.confirm_clear_bookmarks(),
+                    KeyCode::Esc => app.cancel_clear_bookmarks(),
                     _ => {}
                 },
                 InputMode::AlertList => match key.code {

@@ -1,6 +1,6 @@
 use super::SortDirection;
 use crate::api::{NewsItem, StockQuote};
-use crate::config::Holding;
+use crate::config::{Bookmark, Holding};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -75,6 +75,17 @@ pub fn compare_news_column(col: usize, a: &NewsItem, b: &NewsItem) -> Ordering {
         0 => a.published_at.cmp(&b.published_at),
         1 => a.publisher.cmp(&b.publisher),
         2 => a.title.cmp(&b.title),
+        _ => Ordering::Equal,
+    }
+}
+
+/// Columns: 0=Bookmarked, 1=Published, 2=Source, 3=Headline
+pub fn compare_bookmark_column(col: usize, a: &Bookmark, b: &Bookmark) -> Ordering {
+    match col {
+        0 => a.bookmarked_at.cmp(&b.bookmarked_at),
+        1 => a.published_at.cmp(&b.published_at),
+        2 => a.source.cmp(&b.source),
+        3 => a.headline.cmp(&b.headline),
         _ => Ordering::Equal,
     }
 }

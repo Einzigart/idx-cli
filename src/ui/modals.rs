@@ -207,9 +207,17 @@ fn help_content() -> Vec<Line<'static>> {
         help_binding("D", "Delete portfolio"),
         Line::from(""),
         help_section("News"),
+        help_binding("b", "Toggle bookmark on article"),
         help_binding("r", "Refresh news feeds"),
         help_binding("Enter", "Open article preview"),
         help_binding("o", "Open article in browser (in preview)"),
+        Line::from(""),
+        help_section("Bookmarks"),
+        help_binding("d", "Remove selected bookmark"),
+        help_binding("D", "Clear all bookmarks"),
+        help_binding("m", "Toggle read/unread"),
+        help_binding("Enter", "Open bookmark detail"),
+        help_binding("o", "Open URL in browser (in detail)"),
         Line::from(""),
         help_section("Other"),
         help_binding("s", "Cycle sort column"),
@@ -381,6 +389,46 @@ pub fn draw_alert_modal(frame: &mut Frame, app: &crate::app::App) {
         .style(Style::default().bg(Color::Black));
     let inner_area = outer_block.inner(area);
     frame.render_widget(outer_block, area);
+
+    frame.render_widget(
+        Paragraph::new(content).alignment(Alignment::Left),
+        inner_area,
+    );
+}
+
+pub fn draw_bookmark_clear_confirm(frame: &mut Frame) {
+    let area = centered_rect(40, 20, frame.area());
+    frame.render_widget(Clear, area);
+
+    let outer_block = Block::default()
+        .title(" Clear All Bookmarks ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Red))
+        .style(Style::default().bg(Color::Black));
+
+    let inner_area = outer_block.inner(area);
+    frame.render_widget(outer_block, area);
+
+    let content = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Remove all bookmarks?",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  This cannot be undone.",
+            Style::default().fg(Color::DarkGray),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  [Enter] ", Style::default().fg(Color::Red)),
+            Span::styled("Confirm  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc] ", Style::default().fg(Color::Cyan)),
+            Span::styled("Cancel", Style::default().fg(Color::DarkGray)),
+        ]),
+    ];
 
     frame.render_widget(
         Paragraph::new(content).alignment(Alignment::Left),

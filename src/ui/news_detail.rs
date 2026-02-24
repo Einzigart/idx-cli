@@ -10,7 +10,7 @@ use ratatui::{
 };
 
 /// Wrap text to lines of at most `width` characters, breaking at word boundaries.
-fn word_wrap(text: &str, width: usize) -> Vec<String> {
+pub(crate) fn word_wrap(text: &str, width: usize) -> Vec<String> {
     if width == 0 {
         return vec![];
     }

@@ -1,6 +1,10 @@
-use super::sort::{compare_news_column, compare_portfolio_column, compare_watchlist_column};
+use super::sort::{
+    compare_bookmark_column, compare_news_column, compare_portfolio_column,
+    compare_watchlist_column,
+};
 use super::{App, InputMode, SortDirection};
 use crate::api::{NewsItem, StockQuote};
+use crate::config::Bookmark;
 
 impl App {
     pub fn start_search(&mut self) {
@@ -37,9 +41,11 @@ impl App {
         self.selected_index = 0;
         self.portfolio_selected = 0;
         self.news_selected = 0;
+        self.bookmark_selected = 0;
         *self.watchlist_table_state.offset_mut() = 0;
         *self.portfolio_table_state.offset_mut() = 0;
         *self.news_table_state.offset_mut() = 0;
+        *self.bookmark_table_state.offset_mut() = 0;
     }
 
     pub fn get_raw_watchlist(&self) -> Vec<(&String, Option<&StockQuote>)> {
@@ -117,6 +123,31 @@ impl App {
                     SortDirection::Descending => ord.reverse(),
                 }
             });
+        }
+        items
+    }
+
+    pub fn get_filtered_bookmarks(&self) -> Vec<&Bookmark> {
+        let mut items: Vec<&Bookmark> = self.config.bookmarks.iter().collect();
+        if self.search_active {
+            items.retain(|b| {
+                b.headline.to_uppercase().contains(&self.search_query)
+                    || b.source.to_uppercase().contains(&self.search_query)
+            });
+        }
+        // Default sort: by bookmarked_at descending (most recent first)
+        if let Some(col) = self.bookmark_sort_column {
+            let dir = self.bookmark_sort_direction;
+            items.sort_by(|a, b| {
+                let ord = compare_bookmark_column(col, a, b);
+                match dir {
+                    SortDirection::Ascending => ord,
+                    SortDirection::Descending => ord.reverse(),
+                }
+            });
+        } else {
+            // No explicit sort column: default to bookmarked_at descending
+            items.sort_by(|a, b| b.bookmarked_at.cmp(&a.bookmarked_at));
         }
         items
     }
