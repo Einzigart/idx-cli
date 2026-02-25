@@ -89,7 +89,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     refresh_news_and_draw(terminal, app, &urls).await?;
 
     loop {
-        // Auto-refresh quotes silently (skip in News/Bookmarks view).
+        // Auto-refresh quotes silently (skip in News view).
         // Uses refresh_symbols() instead of prepare_refresh() to avoid
         // setting loading=true, which would flicker the clock display.
         if app.view_mode != ViewMode::News
@@ -188,7 +188,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         if app.view_mode == ViewMode::News {
                             let urls = app.prepare_news_refresh();
                             refresh_news_and_draw(terminal, app, &urls).await?;
-                        } else {
+                        } else if app.view_mode != ViewMode::News {
                             needs_refresh = true;
                         }
                     }
