@@ -19,7 +19,7 @@ A terminal UI (TUI) application for tracking Indonesian stock market (IDX) data.
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/idx-cli.git
+git clone https://github.com/Einzigart/idx-cli.git
 cd idx-cli
 
 # Build and run

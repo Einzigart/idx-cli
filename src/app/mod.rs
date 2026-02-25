@@ -73,6 +73,12 @@ pub enum ViewMode {
     Watchlist,
     Portfolio,
     News,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NewsTab {
+    #[default]
+    Feed,
     Bookmarks,
 }
 
@@ -148,6 +154,7 @@ pub struct App {
     pub rss_loading: bool,
     pub news_sort_column: Option<usize>,
     pub news_sort_direction: SortDirection,
+    pub news_tab: NewsTab,
     pub news_detail_scroll: usize,
     pub watchlist_table_state: TableState,
     pub portfolio_table_state: TableState,
@@ -201,6 +208,7 @@ impl App {
             rss_loading: false,
             news_sort_column: None,
             news_sort_direction: SortDirection::Ascending,
+            news_tab: NewsTab::default(),
             news_detail_scroll: 0,
             watchlist_table_state: TableState::default(),
             portfolio_table_state: TableState::default(),
@@ -253,6 +261,7 @@ impl App {
             rss_loading: false,
             news_sort_column: None,
             news_sort_direction: SortDirection::Ascending,
+            news_tab: NewsTab::default(),
             news_detail_scroll: 0,
             watchlist_table_state: TableState::default(),
             portfolio_table_state: TableState::default(),
@@ -274,7 +283,7 @@ impl App {
         let mut symbols: Vec<String> = match self.view_mode {
             ViewMode::Watchlist => self.config.current_watchlist().symbols.clone(),
             ViewMode::Portfolio => self.config.portfolio_symbols(),
-            ViewMode::News | ViewMode::Bookmarks => return None,
+            ViewMode::News => return None,
         };
         if symbols.is_empty() {
             return Some(vec!["^JKSE".to_string()]);
@@ -342,31 +351,32 @@ impl App {
                 }
             }
             ViewMode::News => {
-                if self.news_selected > 0 {
-                    self.news_selected -= 1;
-                }
-                let sel = self.news_selected;
-                let state = &mut self.news_table_state;
-                state.select(Some(sel));
-                let off = state.offset();
-                if sel < off {
-                    *state.offset_mut() = sel;
-                } else if vh > 0 && sel >= off + vh {
-                    *state.offset_mut() = sel + 1 - vh;
-                }
-            }
-            ViewMode::Bookmarks => {
-                if self.bookmark_selected > 0 {
-                    self.bookmark_selected -= 1;
-                }
-                let sel = self.bookmark_selected;
-                let state = &mut self.bookmark_table_state;
-                state.select(Some(sel));
-                let off = state.offset();
-                if sel < off {
-                    *state.offset_mut() = sel;
-                } else if vh > 0 && sel >= off + vh {
-                    *state.offset_mut() = sel + 1 - vh;
+                if self.news_tab == NewsTab::Bookmarks {
+                    if self.bookmark_selected > 0 {
+                        self.bookmark_selected -= 1;
+                    }
+                    let sel = self.bookmark_selected;
+                    let state = &mut self.bookmark_table_state;
+                    state.select(Some(sel));
+                    let off = state.offset();
+                    if sel < off {
+                        *state.offset_mut() = sel;
+                    } else if vh > 0 && sel >= off + vh {
+                        *state.offset_mut() = sel + 1 - vh;
+                    }
+                } else {
+                    if self.news_selected > 0 {
+                        self.news_selected -= 1;
+                    }
+                    let sel = self.news_selected;
+                    let state = &mut self.news_table_state;
+                    state.select(Some(sel));
+                    let off = state.offset();
+                    if sel < off {
+                        *state.offset_mut() = sel;
+                    } else if vh > 0 && sel >= off + vh {
+                        *state.offset_mut() = sel + 1 - vh;
+                    }
                 }
             }
         }
@@ -406,33 +416,34 @@ impl App {
                 }
             }
             ViewMode::News => {
-                let len = self.get_filtered_news().len();
-                if len > 0 && self.news_selected < len - 1 {
-                    self.news_selected += 1;
-                }
-                let sel = self.news_selected;
-                let state = &mut self.news_table_state;
-                state.select(Some(sel));
-                let off = state.offset();
-                if sel < off {
-                    *state.offset_mut() = sel;
-                } else if vh > 0 && sel >= off + vh {
-                    *state.offset_mut() = sel + 1 - vh;
-                }
-            }
-            ViewMode::Bookmarks => {
-                let len = self.get_filtered_bookmarks().len();
-                if len > 0 && self.bookmark_selected < len - 1 {
-                    self.bookmark_selected += 1;
-                }
-                let sel = self.bookmark_selected;
-                let state = &mut self.bookmark_table_state;
-                state.select(Some(sel));
-                let off = state.offset();
-                if sel < off {
-                    *state.offset_mut() = sel;
-                } else if vh > 0 && sel >= off + vh {
-                    *state.offset_mut() = sel + 1 - vh;
+                if self.news_tab == NewsTab::Bookmarks {
+                    let len = self.get_filtered_bookmarks().len();
+                    if len > 0 && self.bookmark_selected < len - 1 {
+                        self.bookmark_selected += 1;
+                    }
+                    let sel = self.bookmark_selected;
+                    let state = &mut self.bookmark_table_state;
+                    state.select(Some(sel));
+                    let off = state.offset();
+                    if sel < off {
+                        *state.offset_mut() = sel;
+                    } else if vh > 0 && sel >= off + vh {
+                        *state.offset_mut() = sel + 1 - vh;
+                    }
+                } else {
+                    let len = self.get_filtered_news().len();
+                    if len > 0 && self.news_selected < len - 1 {
+                        self.news_selected += 1;
+                    }
+                    let sel = self.news_selected;
+                    let state = &mut self.news_table_state;
+                    state.select(Some(sel));
+                    let off = state.offset();
+                    if sel < off {
+                        *state.offset_mut() = sel;
+                    } else if vh > 0 && sel >= off + vh {
+                        *state.offset_mut() = sel + 1 - vh;
+                    }
                 }
             }
         }
@@ -442,8 +453,13 @@ impl App {
         let num_columns = match self.view_mode {
             ViewMode::Watchlist => WATCHLIST_SORTABLE_COLUMNS,
             ViewMode::Portfolio => PORTFOLIO_SORTABLE_COLUMNS,
-            ViewMode::News => NEWS_SORTABLE_COLUMNS,
-            ViewMode::Bookmarks => BOOKMARK_SORTABLE_COLUMNS,
+            ViewMode::News => {
+                if self.news_tab == NewsTab::Bookmarks {
+                    BOOKMARK_SORTABLE_COLUMNS
+                } else {
+                    NEWS_SORTABLE_COLUMNS
+                }
+            }
         };
         let (col, selected) = match self.view_mode {
             ViewMode::Watchlist => (&mut self.watchlist_sort_column, &mut self.selected_index),
@@ -451,8 +467,13 @@ impl App {
                 &mut self.portfolio_sort_column,
                 &mut self.portfolio_selected,
             ),
-            ViewMode::News => (&mut self.news_sort_column, &mut self.news_selected),
-            ViewMode::Bookmarks => (&mut self.bookmark_sort_column, &mut self.bookmark_selected),
+            ViewMode::News => {
+                if self.news_tab == NewsTab::Bookmarks {
+                    (&mut self.bookmark_sort_column, &mut self.bookmark_selected)
+                } else {
+                    (&mut self.news_sort_column, &mut self.news_selected)
+                }
+            }
         };
         *col = match *col {
             None => Some(0),
@@ -470,11 +491,16 @@ impl App {
                 &mut self.portfolio_sort_direction,
                 &mut self.portfolio_selected,
             ),
-            ViewMode::News => (&mut self.news_sort_direction, &mut self.news_selected),
-            ViewMode::Bookmarks => (
-                &mut self.bookmark_sort_direction,
-                &mut self.bookmark_selected,
-            ),
+            ViewMode::News => {
+                if self.news_tab == NewsTab::Bookmarks {
+                    (
+                        &mut self.bookmark_sort_direction,
+                        &mut self.bookmark_selected,
+                    )
+                } else {
+                    (&mut self.news_sort_direction, &mut self.news_selected)
+                }
+            }
         };
         dir.toggle();
         *selected = 0;
@@ -485,8 +511,13 @@ impl App {
         let state = match self.view_mode {
             ViewMode::Watchlist => &mut self.watchlist_table_state,
             ViewMode::Portfolio => &mut self.portfolio_table_state,
-            ViewMode::News => &mut self.news_table_state,
-            ViewMode::Bookmarks => &mut self.bookmark_table_state,
+            ViewMode::News => {
+                if self.news_tab == NewsTab::Bookmarks {
+                    &mut self.bookmark_table_state
+                } else {
+                    &mut self.news_table_state
+                }
+            }
         };
         *state.offset_mut() = 0;
     }
@@ -500,12 +531,22 @@ impl App {
         self.view_mode = match self.view_mode {
             ViewMode::Watchlist => ViewMode::Portfolio,
             ViewMode::Portfolio => ViewMode::News,
-            ViewMode::News => ViewMode::Bookmarks,
-            ViewMode::Bookmarks => ViewMode::Watchlist,
+            ViewMode::News => ViewMode::Watchlist,
         };
-        if !matches!(self.view_mode, ViewMode::News | ViewMode::Bookmarks) {
+        if self.view_mode == ViewMode::News {
+            self.news_tab = NewsTab::Feed;
+        }
+        if self.view_mode != ViewMode::News {
             self.quotes.clear();
         }
+        self.clear_filter();
+    }
+
+    pub fn toggle_news_tab(&mut self) {
+        self.news_tab = match self.news_tab {
+            NewsTab::Feed => NewsTab::Bookmarks,
+            NewsTab::Bookmarks => NewsTab::Feed,
+        };
         self.clear_filter();
     }
 

@@ -13,7 +13,7 @@ pub(crate) use tables::{PORTFOLIO_SORTABLE_COLUMNS, WATCHLIST_SORTABLE_COLUMNS};
 
 use formatters::format_price;
 
-use crate::app::{App, InputMode, ViewMode};
+use crate::app::{App, InputMode, NewsTab, ViewMode};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -56,8 +56,13 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     match app.view_mode {
         ViewMode::Watchlist => tables::draw_watchlist(frame, chunks[1], app),
         ViewMode::Portfolio => tables::draw_portfolio(frame, chunks[1], app),
-        ViewMode::News => news::draw_news(frame, chunks[1], app),
-        ViewMode::Bookmarks => bookmarks::draw_bookmarks(frame, chunks[1], app),
+        ViewMode::News => {
+            if app.news_tab == NewsTab::Bookmarks {
+                bookmarks::draw_bookmarks(frame, chunks[1], app);
+            } else {
+                news::draw_news(frame, chunks[1], app);
+            }
+        }
     }
 
     draw_footer(frame, chunks[2], app);
@@ -66,7 +71,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         modals::draw_stock_detail(frame, app);
     }
     if app.input_mode == InputMode::Help {
-        modals::draw_help(frame);
+        modals::draw_help(frame, app);
     }
     if app.input_mode == InputMode::ExportMenu {
         modals::draw_export_menu(frame, app);
@@ -102,11 +107,13 @@ fn draw_header(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     let (view_indicator, view_color) = match app.view_mode {
         ViewMode::Watchlist => (app.watchlist_indicator(), Color::Yellow),
         ViewMode::Portfolio => (app.portfolio_indicator(), Color::Magenta),
-        ViewMode::News => ("News".to_string(), Color::Blue),
-        ViewMode::Bookmarks => (
-            format!("Bookmarks ({})", app.config.bookmarks.len()),
-            Color::Green,
-        ),
+        ViewMode::News => match app.news_tab {
+            NewsTab::Feed => ("News > Feed".to_string(), Color::Blue),
+            NewsTab::Bookmarks => (
+                format!("News > Bookmarks ({})", app.config.bookmarks.len()),
+                Color::Green,
+            ),
+        },
     };
 
     let filter_span = if app.search_active {
@@ -197,10 +204,11 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
                     " [a] Add [e] Edit [A] Alerts [d] Del [r] Refresh [s] Sort [c] Chart [p] News [Enter] Detail [↑↓] Nav [←→] Port [?] Help "
                 }
                 ViewMode::News => {
-                    " [b] Bookmark [r] Refresh [s] Sort [/] Search [p] Bookmarks [Enter] Preview [↑↓] Nav [?] Help "
-                }
-                ViewMode::Bookmarks => {
-                    " [d] Remove [D] Clear all [m] Toggle read [s] Sort [/] Search [p] Watchlist [Enter] Detail [↑↓] Nav [?] Help "
+                    if app.news_tab == NewsTab::Bookmarks {
+                        " [d] Remove [D] Clear all [m] Toggle read [s] Sort [/] Search [Enter] Detail [↑↓] Nav [←→] Tab [?] Help "
+                    } else {
+                        " [b] Bookmark [r] Refresh [s] Sort [/] Search [Enter] Preview [↑↓] Nav [←→] Tab [?] Help "
+                    }
                 }
             };
             if let Some(msg) = &app.status_message {

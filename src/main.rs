@@ -5,7 +5,7 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use idx_cli::app::{App, InputMode, ViewMode};
+use idx_cli::app::{App, InputMode, NewsTab, ViewMode};
 use idx_cli::ui;
 use ratatui::prelude::*;
 use std::io;
@@ -89,10 +89,10 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
     refresh_news_and_draw(terminal, app, &urls).await?;
 
     loop {
-        // Auto-refresh quotes silently (skip in News/Bookmarks view).
+        // Auto-refresh quotes silently (skip in News view).
         // Uses refresh_symbols() instead of prepare_refresh() to avoid
         // setting loading=true, which would flicker the clock display.
-        if !matches!(app.view_mode, ViewMode::News | ViewMode::Bookmarks)
+        if app.view_mode != ViewMode::News
             && last_refresh.elapsed() >= refresh_interval
             && let Some(symbols) = app.refresh_symbols()
         {
@@ -144,7 +144,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     KeyCode::Char('e') => match app.view_mode {
                         ViewMode::Portfolio => app.start_portfolio_edit(),
                         ViewMode::Watchlist => app.start_export(),
-                        ViewMode::News | ViewMode::Bookmarks => {}
+                        ViewMode::News => {}
                     },
                     KeyCode::Char('p') => {
                         app.toggle_view();
@@ -153,17 +153,17 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                                 let urls = app.prepare_news_refresh();
                                 refresh_news_and_draw(terminal, app, &urls).await?;
                             }
-                        } else if !matches!(app.view_mode, ViewMode::Bookmarks) {
+                        } else {
                             needs_refresh = true;
                         }
                     }
                     KeyCode::Char('a') => match app.view_mode {
                         ViewMode::Watchlist => app.start_adding(),
                         ViewMode::Portfolio => app.start_portfolio_add(),
-                        ViewMode::News | ViewMode::Bookmarks => {}
+                        ViewMode::News => {}
                     },
                     KeyCode::Char('b') => {
-                        if matches!(app.view_mode, ViewMode::News) {
+                        if app.view_mode == ViewMode::News && app.news_tab == NewsTab::Feed {
                             app.toggle_news_bookmark();
                         }
                     }
@@ -171,13 +171,16 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         match app.view_mode {
                             ViewMode::Watchlist => app.remove_selected()?,
                             ViewMode::Portfolio => app.remove_selected_holding()?,
-                            ViewMode::Bookmarks => app.remove_selected_bookmark(),
-                            ViewMode::News => {}
+                            ViewMode::News => {
+                                if app.news_tab == NewsTab::Bookmarks {
+                                    app.remove_selected_bookmark();
+                                }
+                            }
                         }
                         needs_refresh = true;
                     }
                     KeyCode::Char('m') => {
-                        if app.view_mode == ViewMode::Bookmarks {
+                        if app.view_mode == ViewMode::News && app.news_tab == NewsTab::Bookmarks {
                             app.toggle_selected_bookmark_read();
                         }
                     }
@@ -185,7 +188,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                         if app.view_mode == ViewMode::News {
                             let urls = app.prepare_news_refresh();
                             refresh_news_and_draw(terminal, app, &urls).await?;
-                        } else if app.view_mode != ViewMode::Bookmarks {
+                        } else if app.view_mode != ViewMode::News {
                             needs_refresh = true;
                         }
                     }
@@ -200,7 +203,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             app.prev_portfolio();
                             needs_refresh = true;
                         }
-                        _ => {}
+                        ViewMode::News => {
+                            app.toggle_news_tab();
+                        }
                     },
                     KeyCode::Right | KeyCode::Char('l') => match app.view_mode {
                         ViewMode::Watchlist => {
@@ -211,7 +216,9 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             app.next_portfolio();
                             needs_refresh = true;
                         }
-                        _ => {}
+                        ViewMode::News => {
+                            app.toggle_news_tab();
+                        }
                     },
                     KeyCode::Char('n') => match app.view_mode {
                         ViewMode::Watchlist => app.start_watchlist_add(),
@@ -232,14 +239,22 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                             app.remove_current_portfolio()?;
                             needs_refresh = true;
                         }
-                        ViewMode::Bookmarks => app.start_clear_bookmarks(),
-                        _ => {}
+                        ViewMode::News => {
+                            if app.news_tab == NewsTab::Bookmarks {
+                                app.start_clear_bookmarks();
+                            }
+                        }
                     },
                     KeyCode::Enter => match app.view_mode {
                         ViewMode::Watchlist => app.show_stock_detail().await,
                         ViewMode::Portfolio => app.show_portfolio_detail().await,
-                        ViewMode::News => app.open_news_detail(),
-                        ViewMode::Bookmarks => app.open_bookmark_detail(),
+                        ViewMode::News => {
+                            if app.news_tab == NewsTab::Bookmarks {
+                                app.open_bookmark_detail();
+                            } else {
+                                app.open_news_detail();
+                            }
+                        }
                     },
                     KeyCode::Char('s') => app.cycle_sort_column(),
                     KeyCode::Char('S') => app.toggle_sort_direction(),
@@ -250,7 +265,7 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
                     }
                     KeyCode::Char('A') => match app.view_mode {
                         ViewMode::Watchlist | ViewMode::Portfolio => app.open_alert_modal(),
-                        ViewMode::News | ViewMode::Bookmarks => {}
+                        ViewMode::News => {}
                     },
                     _ => {}
                 },

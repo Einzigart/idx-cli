@@ -174,66 +174,86 @@ fn help_binding(key: &str, desc: &str) -> Line<'static> {
     ])
 }
 
-fn help_content() -> Vec<Line<'static>> {
-    vec![
+fn help_content(app: &crate::app::App) -> Vec<Line<'static>> {
+    use crate::app::{NewsTab, ViewMode};
+
+    let mut lines = vec![
         help_section("General"),
         help_binding("q", "Quit"),
         help_binding("p", "Cycle Watchlist / Portfolio / News"),
-        help_binding("r", "Refresh quotes"),
         help_binding("?", "Show this help"),
-        help_binding("Enter", "Stock detail popup"),
-        help_binding("↓", "Move selection down"),
-        help_binding("↑", "Move selection up"),
-        Line::from(""),
-        help_section("Watchlist"),
-        help_binding("a", "Add stock symbol"),
-        help_binding("d", "Delete selected stock"),
-        help_binding("e", "Export data (CSV/JSON)"),
-        help_binding("h / ←", "Previous watchlist"),
-        help_binding("l / →", "Next watchlist"),
-        help_binding("n", "New watchlist"),
-        help_binding("R", "Rename watchlist"),
-        help_binding("D", "Delete watchlist"),
-        Line::from(""),
-        help_section("Portfolio"),
-        help_binding("a", "Add holding (step-by-step)"),
-        help_binding("e", "Edit selected holding"),
-        help_binding("d", "Delete selected holding"),
-        help_binding("c", "Portfolio allocation chart"),
-        help_binding("h / ←", "Previous portfolio"),
-        help_binding("l / →", "Next portfolio"),
-        help_binding("n", "New portfolio"),
-        help_binding("R", "Rename portfolio"),
-        help_binding("D", "Delete portfolio"),
-        Line::from(""),
-        help_section("News"),
-        help_binding("b", "Toggle bookmark on article"),
-        help_binding("r", "Refresh news feeds"),
-        help_binding("Enter", "Open article preview"),
-        help_binding("o", "Open article in browser (in preview)"),
-        Line::from(""),
-        help_section("Bookmarks"),
-        help_binding("d", "Remove selected bookmark"),
-        help_binding("D", "Clear all bookmarks"),
-        help_binding("m", "Toggle read/unread"),
-        help_binding("Enter", "Open bookmark detail"),
-        help_binding("o", "Open URL in browser (in detail)"),
-        Line::from(""),
-        help_section("Other"),
+        help_binding("↑ / ↓", "Move selection"),
         help_binding("s", "Cycle sort column"),
         help_binding("S", "Toggle sort direction"),
-        help_binding("/", "Search / filter symbols"),
-        help_binding("e", "Export data (CSV/JSON)"),
+        help_binding("/", "Search / filter"),
         Line::from(""),
-        Line::from(Span::styled(
-            "  [?/Enter/Esc] Close",
-            Style::default().fg(Color::DarkGray),
-        )),
-    ]
+    ];
+
+    match app.view_mode {
+        ViewMode::Watchlist => {
+            lines.push(help_section("Watchlist"));
+            lines.push(help_binding("a", "Add stock symbol"));
+            lines.push(help_binding("d", "Delete selected stock"));
+            lines.push(help_binding("e", "Export data (CSV/JSON)"));
+            lines.push(help_binding("r", "Refresh quotes"));
+            lines.push(help_binding("A", "Manage alerts"));
+            lines.push(help_binding("Enter", "Stock detail popup"));
+            lines.push(help_binding("h / ←", "Previous watchlist"));
+            lines.push(help_binding("l / →", "Next watchlist"));
+            lines.push(help_binding("n", "New watchlist"));
+            lines.push(help_binding("R", "Rename watchlist"));
+            lines.push(help_binding("D", "Delete watchlist"));
+        }
+        ViewMode::Portfolio => {
+            lines.push(help_section("Portfolio"));
+            lines.push(help_binding("a", "Add holding (step-by-step)"));
+            lines.push(help_binding("e", "Edit selected holding"));
+            lines.push(help_binding("d", "Delete selected holding"));
+            lines.push(help_binding("r", "Refresh quotes"));
+            lines.push(help_binding("A", "Manage alerts"));
+            lines.push(help_binding("c", "Portfolio allocation chart"));
+            lines.push(help_binding("Enter", "Stock detail popup"));
+            lines.push(help_binding("h / ←", "Previous portfolio"));
+            lines.push(help_binding("l / →", "Next portfolio"));
+            lines.push(help_binding("n", "New portfolio"));
+            lines.push(help_binding("R", "Rename portfolio"));
+            lines.push(help_binding("D", "Delete portfolio"));
+        }
+        ViewMode::News => {
+            lines.push(help_section("News"));
+            lines.push(help_binding("h / ←  l / →", "Switch Feed / Bookmarks tab"));
+            match app.news_tab {
+                NewsTab::Feed => {
+                    lines.push(help_binding("b", "Toggle bookmark on article"));
+                    lines.push(help_binding("r", "Refresh news feeds"));
+                    lines.push(help_binding("Enter", "Open article preview"));
+                    lines.push(help_binding("o", "Open in browser (in preview)"));
+                }
+                NewsTab::Bookmarks => {
+                    lines.push(help_binding("Enter", "Open bookmark detail"));
+                    lines.push(help_binding("o", "Open in browser (in detail)"));
+                    lines.push(help_binding("d", "Remove selected bookmark"));
+                    lines.push(help_binding("D", "Clear all bookmarks"));
+                    lines.push(help_binding("m", "Toggle read / unread"));
+                }
+            }
+        }
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  [?/Enter/Esc] Close",
+        Style::default().fg(Color::DarkGray),
+    )));
+    lines
 }
 
-pub fn draw_help(frame: &mut Frame) {
-    let area = centered_rect(50, 70, frame.area());
+pub fn draw_help(frame: &mut Frame, app: &crate::app::App) {
+    let content = help_content(app);
+    let content_height = content.len() as u16 + 2; // +2 for borders
+    let percent_y = ((content_height * 100) / frame.area().height.max(1)).clamp(30, 80);
+
+    let area = centered_rect(50, percent_y, frame.area());
     frame.render_widget(Clear, area);
 
     let outer_block = Block::default()
@@ -246,7 +266,7 @@ pub fn draw_help(frame: &mut Frame) {
     frame.render_widget(outer_block, area);
 
     frame.render_widget(
-        Paragraph::new(help_content()).alignment(Alignment::Left),
+        Paragraph::new(content).alignment(Alignment::Left),
         inner_area,
     );
 }
