@@ -6,7 +6,7 @@ impl App {
         let symbol = match self.view_mode {
             ViewMode::Watchlist => self.selected_watchlist_symbol(),
             ViewMode::Portfolio => self.selected_portfolio_symbol(),
-            ViewMode::News | ViewMode::Bookmarks => return,
+            ViewMode::News => return,
         };
         if let Some(sym) = symbol {
             self.alert_symbol = Some(sym);

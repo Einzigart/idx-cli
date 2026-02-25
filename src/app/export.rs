@@ -7,7 +7,7 @@ impl App {
         self.input_mode = InputMode::ExportMenu;
         self.export_menu_selection = 0;
         self.export_scope = match self.view_mode {
-            ViewMode::Watchlist | ViewMode::News | ViewMode::Bookmarks => ExportScope::Watchlist,
+            ViewMode::Watchlist | ViewMode::News => ExportScope::Watchlist,
             ViewMode::Portfolio => ExportScope::Portfolio,
         };
     }

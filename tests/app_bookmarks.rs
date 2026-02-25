@@ -1,7 +1,7 @@
 mod common;
 
 use common::{make_news_item, test_app};
-use idx_cli::app::{InputMode, ViewMode};
+use idx_cli::app::{InputMode, NewsTab, ViewMode};
 use idx_cli::config::Bookmark;
 
 fn make_bookmark(headline: &str, source: &str, url: Option<&str>) -> Bookmark {
@@ -53,7 +53,8 @@ fn bookmark_prevents_duplicates() {
 #[test]
 fn remove_selected_bookmark_adjusts_index() {
     let mut app = test_app();
-    app.view_mode = ViewMode::Bookmarks;
+    app.view_mode = ViewMode::News;
+    app.news_tab = NewsTab::Bookmarks;
     app.config.bookmarks.push(make_bookmark("First", "A", None));
     app.config
         .bookmarks
@@ -88,7 +89,8 @@ fn clear_bookmarks_empties_list() {
 #[test]
 fn toggle_read_flips_status() {
     let mut app = test_app();
-    app.view_mode = ViewMode::Bookmarks;
+    app.view_mode = ViewMode::News;
+    app.news_tab = NewsTab::Bookmarks;
     app.config.bookmarks.push(make_bookmark("Test", "S", None));
     assert!(!app.config.bookmarks[0].read);
 
@@ -136,13 +138,17 @@ fn is_bookmarked_checks_headline_and_url() {
 }
 
 #[test]
-fn bookmark_view_in_toggle_cycle() {
+fn news_tab_toggle_cycle() {
     let mut app = test_app();
     assert_eq!(app.view_mode, ViewMode::Watchlist);
     app.toggle_view(); // -> Portfolio
-    app.toggle_view(); // -> News
-    app.toggle_view(); // -> Bookmarks
-    assert_eq!(app.view_mode, ViewMode::Bookmarks);
+    app.toggle_view(); // -> News (Feed tab)
+    assert_eq!(app.view_mode, ViewMode::News);
+    assert_eq!(app.news_tab, NewsTab::Feed);
+    app.toggle_news_tab(); // -> Bookmarks tab
+    assert_eq!(app.news_tab, NewsTab::Bookmarks);
+    app.toggle_news_tab(); // -> Feed tab
+    assert_eq!(app.news_tab, NewsTab::Feed);
     app.toggle_view(); // -> Watchlist
     assert_eq!(app.view_mode, ViewMode::Watchlist);
 }
@@ -150,7 +156,8 @@ fn bookmark_view_in_toggle_cycle() {
 #[test]
 fn open_bookmark_detail_marks_read() {
     let mut app = test_app();
-    app.view_mode = ViewMode::Bookmarks;
+    app.view_mode = ViewMode::News;
+    app.news_tab = NewsTab::Bookmarks;
     app.config.bookmarks.push(make_bookmark("Test", "S", None));
     assert!(!app.config.bookmarks[0].read);
 
@@ -184,7 +191,8 @@ fn start_clear_bookmarks_no_op_when_empty() {
 #[test]
 fn remove_bookmark_clamps_to_filtered_list() {
     let mut app = test_app();
-    app.view_mode = ViewMode::Bookmarks;
+    app.view_mode = ViewMode::News;
+    app.news_tab = NewsTab::Bookmarks;
     // Add 3 bookmarks: "Alpha from X", "Beta from Y", "Alpha from Z"
     app.config
         .bookmarks
@@ -218,7 +226,8 @@ fn remove_bookmark_clamps_to_filtered_list() {
 #[test]
 fn confirm_search_resets_bookmark_selected() {
     let mut app = test_app();
-    app.view_mode = ViewMode::Bookmarks;
+    app.view_mode = ViewMode::News;
+    app.news_tab = NewsTab::Bookmarks;
     app.config
         .bookmarks
         .push(make_bookmark("News A", "X", None));
