@@ -5,7 +5,7 @@ A terminal UI (TUI) application for tracking Indonesian stock market (IDX) data.
 ![Rust](https://img.shields.io/badge/rust-2024-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-![idx-cli screenshot](assets/home.jpg)
+![idx-cli screenshot](assets/home.png)
 
 ## Features
 
