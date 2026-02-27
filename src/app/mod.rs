@@ -165,6 +165,7 @@ pub struct App {
     pub bookmark_sort_column: Option<usize>,
     pub bookmark_sort_direction: SortDirection,
     pub bookmark_detail_scroll: usize,
+    pub ctrl_c_at: Option<Instant>,
     news_client: NewsClient,
     client: YahooClient,
 }
@@ -219,6 +220,7 @@ impl App {
             bookmark_sort_column: None,
             bookmark_sort_direction: SortDirection::Descending,
             bookmark_detail_scroll: 0,
+            ctrl_c_at: None,
             news_client: NewsClient::new(),
             client: YahooClient::new(),
         })
@@ -272,6 +274,7 @@ impl App {
             bookmark_sort_column: None,
             bookmark_sort_direction: SortDirection::Descending,
             bookmark_detail_scroll: 0,
+            ctrl_c_at: None,
             news_client: NewsClient::new(),
             client: YahooClient::new(),
         }

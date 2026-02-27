@@ -1,7 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+    },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -132,6 +134,23 @@ async fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Resul
         {
             if key.kind != KeyEventKind::Press {
                 continue;
+            }
+
+            // Ctrl+C twice to exit (from any mode)
+            if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+                if app
+                    .ctrl_c_at
+                    .is_some_and(|t| t.elapsed() < Duration::from_secs(2))
+                {
+                    return Ok(());
+                }
+                app.ctrl_c_at = Some(Instant::now());
+                continue;
+            }
+
+            // Any other key clears the Ctrl+C state
+            if app.ctrl_c_at.is_some() {
+                app.ctrl_c_at = None;
             }
 
             let mut needs_refresh = false;

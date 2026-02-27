@@ -21,6 +21,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
+use std::time::Duration;
 
 pub(super) fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let popup_layout = Layout::default()
@@ -354,6 +355,31 @@ fn draw_footer(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         ]),
     };
 
-    let footer = Paragraph::new(content).block(Block::default().borders(Borders::ALL));
+    // Right-aligned Ctrl+C exit hint (auto-expires after 2 seconds)
+    let ctrl_c_active = app
+        .ctrl_c_at
+        .is_some_and(|t| t.elapsed() < Duration::from_secs(2));
+
+    let line = if ctrl_c_active {
+        let left_spans: Vec<Span> = content.spans;
+        let right_spans = vec![Span::styled(
+            "Press Ctrl+C again to exit ",
+            Style::default().fg(Color::Yellow),
+        )];
+
+        let left_width: usize = left_spans.iter().map(|s| s.width()).sum();
+        let right_width: usize = right_spans.iter().map(|s| s.width()).sum();
+        let inner_width = area.width.saturating_sub(2) as usize;
+        let spacer_width = inner_width.saturating_sub(left_width + right_width);
+
+        let mut all_spans = left_spans;
+        all_spans.push(Span::raw(" ".repeat(spacer_width)));
+        all_spans.extend(right_spans);
+        Line::from(all_spans)
+    } else {
+        content
+    };
+
+    let footer = Paragraph::new(line).block(Block::default().borders(Borders::ALL));
     frame.render_widget(footer, area);
 }
